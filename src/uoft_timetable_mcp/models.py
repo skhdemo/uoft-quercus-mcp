@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _reject_control_chars(value: str) -> str:
+    if _CONTROL_CHARS_RE.search(value):
+        msg = "Control characters are not allowed."
+        raise ValueError(msg)
+    return value
 
 
 class ReferenceOption(BaseModel):
@@ -151,7 +161,14 @@ class SearchCoursesInput(BaseModel):
     @field_validator("query")
     @classmethod
     def _trim_query(cls, value: str) -> str:
-        return value.strip()
+        return _reject_control_chars(value.strip())
+
+    @field_validator("instructor")
+    @classmethod
+    def _validate_instructor(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _reject_control_chars(value.strip()) or None
 
     @field_validator(
         "sessions", "divisions", "campuses", "course_levels", "delivery_modes"
@@ -161,10 +178,11 @@ class SearchCoursesInput(BaseModel):
         seen: set[str] = set()
         ordered: list[str] = []
         for item in values:
-            if item in seen:
+            cleaned = _reject_control_chars(item.strip())
+            if not cleaned or cleaned in seen:
                 continue
-            seen.add(item)
-            ordered.append(item)
+            seen.add(cleaned)
+            ordered.append(cleaned)
         return ordered
 
     @model_validator(mode="after")
@@ -188,14 +206,19 @@ class CourseDetailsInput(BaseModel):
     @field_validator("course_code")
     @classmethod
     def _normalize_course_code(cls, value: str) -> str:
-        return value.strip().upper()
+        return _reject_control_chars(value.strip().upper())
+
+    @field_validator("session")
+    @classmethod
+    def _normalize_session(cls, value: str) -> str:
+        return _reject_control_chars(value.strip())
 
     @field_validator("section_code")
     @classmethod
     def _normalize_section_code(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        normalized = value.strip().upper()
+        normalized = _reject_control_chars(value.strip().upper())
         return normalized or None
 
 
