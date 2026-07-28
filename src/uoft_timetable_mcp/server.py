@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from uoft_timetable_mcp import __version__
 from uoft_timetable_mcp.client import TimetableClient
+from uoft_timetable_mcp.conflicts import ResolvedSection, analyze_conflicts
 from uoft_timetable_mcp.errors import (
     CourseNotFoundError,
     TimetableError,
@@ -24,11 +25,17 @@ from uoft_timetable_mcp.errors import (
     to_mcp_error,
 )
 from uoft_timetable_mcp.models import (
+    CheckConflictsInput,
+    CheckConflictsResult,
+    Course,
     CourseDetailsInput,
     CourseDetailsResult,
     ReferenceData,
     SearchCoursesInput,
     SearchCoursesResult,
+    Section,
+    SectionSelection,
+    UnresolvedSelection,
     model_to_public_dict,
 )
 from uoft_timetable_mcp.normalize import (
@@ -40,6 +47,18 @@ from uoft_timetable_mcp.normalize import (
     utc_now,
 )
 from uoft_timetable_mcp.settings import Settings
+
+_CHECK_CONFLICTS_DESCRIPTION = (
+    "Deterministically check whether selected course sections overlap in time. "
+    "Resolves section meeting times from current timetable data — do not rely on "
+    "your own time arithmetic. Before telling a student that a proposed schedule "
+    "is verified, call this tool with every selected section. Only claim the "
+    "schedule is verified when `has_conflicts` is false, `transition_violations` "
+    "is empty, and `is_complete` is true. If `is_complete` is false, say the "
+    "schedule could not be fully verified. "
+    "Unofficial Timetable Builder data; values may change and this project is "
+    "not affiliated with the University of Toronto."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -355,3 +374,154 @@ async def get_course_details(
 
     result = CourseDetailsResult(courses=matched, found=True, fetched_at=fetched_at)
     return model_to_public_dict(result)
+
+
+@mcp.tool(description=_CHECK_CONFLICTS_DESCRIPTION)
+async def check_conflicts(
+    session: str,
+    selections: list[SectionSelection],
+    minimum_transition_minutes: int = 0,
+) -> dict[str, Any]:
+    try:
+        params = CheckConflictsInput(
+            session=session,
+            selections=selections,
+            minimum_transition_minutes=minimum_transition_minutes,
+        )
+    except ValidationError as exc:
+        message = "; ".join(error.get("msg", "Invalid input") for error in exc.errors())
+        raise_tool_error(TimetableValidationError(message))
+
+    state = get_state()
+    fetched_at = state.clock()
+    unresolved: list[UnresolvedSelection] = []
+    resolved_sections: list[ResolvedSection] = []
+    cancelled_sections: list[str] = []
+
+    course_codes = [selection.course_code for selection in params.selections]
+    fetched = await _fetch_courses_bounded(course_codes, state)
+
+    for selection in params.selections:
+        fetch_result = fetched.get(selection.course_code)
+        if fetch_result is None:
+            unresolved.append(
+                UnresolvedSelection(
+                    course_code=selection.course_code,
+                    section_name=None,
+                    reason="Course fetch failed.",
+                )
+            )
+            continue
+        raw_courses, error = fetch_result
+        if error is not None:
+            unresolved.append(
+                UnresolvedSelection(
+                    course_code=selection.course_code,
+                    section_name=None,
+                    reason=error.message,
+                )
+            )
+            continue
+
+        session_records = [
+            raw
+            for raw in raw_courses
+            if session_matches(params.session, raw.get("sessions"))
+        ]
+        if not session_records:
+            unresolved.append(
+                UnresolvedSelection(
+                    course_code=selection.course_code,
+                    section_name=None,
+                    reason=(
+                        f"No course records matched {selection.course_code} in "
+                        f"session {params.session}."
+                    ),
+                )
+            )
+            continue
+
+        normalized_records = [
+            normalize_course(raw, fetched_at=fetched_at) for raw in session_records
+        ]
+        for section_name in selection.section_names:
+            matches = _find_section_matches(normalized_records, section_name)
+            if not matches:
+                unresolved.append(
+                    UnresolvedSelection(
+                        course_code=selection.course_code,
+                        section_name=section_name,
+                        reason="Section was not found for this course/session.",
+                    )
+                )
+                continue
+            if len(matches) > 1:
+                unresolved.append(
+                    UnresolvedSelection(
+                        course_code=selection.course_code,
+                        section_name=section_name,
+                        reason=(
+                            "Section name is ambiguous across multiple course "
+                            "records for this session."
+                        ),
+                    )
+                )
+                continue
+
+            section = matches[0]
+            resolved = ResolvedSection(
+                course_code=selection.course_code,
+                section=section,
+            )
+            resolved_sections.append(resolved)
+            if section.cancelled is True:
+                cancelled_sections.append(resolved.label)
+
+    analysis = analyze_conflicts(
+        resolved_sections,
+        minimum_transition_minutes=params.minimum_transition_minutes,
+    )
+    is_complete = not unresolved and not analysis.unchecked_meetings
+    result = CheckConflictsResult(
+        has_conflicts=bool(analysis.conflicts),
+        is_complete=is_complete,
+        conflicts=analysis.conflicts,
+        transition_violations=analysis.transition_violations,
+        unresolved=unresolved,
+        unchecked_meetings=analysis.unchecked_meetings,
+        cancelled_sections=sorted(cancelled_sections),
+        checked_section_count=len(resolved_sections),
+        fetched_at=fetched_at,
+    )
+    return model_to_public_dict(result)
+
+
+async def _fetch_courses_bounded(
+    course_codes: list[str],
+    state: RuntimeState,
+) -> dict[str, tuple[list[dict[str, Any]], TimetableError | None]]:
+    """Fetch each unique course code once with bounded concurrency."""
+    unique_codes = list(dict.fromkeys(course_codes))
+    semaphore = asyncio.Semaphore(state.settings.max_concurrency)
+    results: dict[str, tuple[list[dict[str, Any]], TimetableError | None]] = {}
+
+    async def _one(code: str) -> None:
+        async with semaphore:
+            try:
+                courses = await state.client.get_courses_by_code(code)
+                results[code] = (courses, None)
+            except TimetableError as exc:
+                results[code] = ([], exc)
+
+    await asyncio.gather(*(_one(code) for code in unique_codes))
+    return results
+
+
+def _find_section_matches(courses: list[Course], section_name: str) -> list[Section]:
+    wanted = section_name.upper()
+    matches: list[Section] = []
+    for course in courses:
+        for section in course.sections:
+            if section.name.upper() == wanted:
+                matches.append(section)
+    return matches

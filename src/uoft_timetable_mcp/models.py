@@ -231,7 +231,7 @@ class SectionSelection(BaseModel):
     @field_validator("course_code")
     @classmethod
     def _normalize_course_code(cls, value: str) -> str:
-        return value.strip().upper()
+        return _reject_control_chars(value.strip().upper())
 
     @field_validator("section_names")
     @classmethod
@@ -239,7 +239,7 @@ class SectionSelection(BaseModel):
         seen: set[str] = set()
         ordered: list[str] = []
         for item in values:
-            name = item.strip()
+            name = _reject_control_chars(item.strip())
             if not name:
                 continue
             key = name.upper()
@@ -260,15 +260,34 @@ class CheckConflictsInput(BaseModel):
     selections: list[SectionSelection] = Field(min_length=1, max_length=20)
     minimum_transition_minutes: int = Field(default=0, ge=0, le=180)
 
+    @field_validator("session")
+    @classmethod
+    def _normalize_session(cls, value: str) -> str:
+        return _reject_control_chars(value.strip())
+
     @model_validator(mode="after")
     def _dedupe_courses(self) -> CheckConflictsInput:
-        seen: set[str] = set()
         ordered: list[SectionSelection] = []
+        index_by_code: dict[str, int] = {}
         for selection in self.selections:
-            if selection.course_code in seen:
+            existing_index = index_by_code.get(selection.course_code)
+            if existing_index is None:
+                index_by_code[selection.course_code] = len(ordered)
+                ordered.append(selection)
                 continue
-            seen.add(selection.course_code)
-            ordered.append(selection)
+            # Merge section names for duplicate course codes (one upstream fetch).
+            merged_names = list(ordered[existing_index].section_names)
+            seen_names = {name.upper() for name in merged_names}
+            for name in selection.section_names:
+                key = name.upper()
+                if key in seen_names:
+                    continue
+                seen_names.add(key)
+                merged_names.append(name)
+            ordered[existing_index] = SectionSelection(
+                course_code=selection.course_code,
+                section_names=merged_names,
+            )
         self.selections = ordered
         return self
 

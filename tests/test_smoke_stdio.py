@@ -39,6 +39,7 @@ async def test_stdio_lists_tools() -> None:
 
     assert isinstance(tool_names, list)
     assert sorted(tool_names) == [
+        "check_conflicts",
         "get_course_details",
         "get_reference_data",
         "search_courses",
