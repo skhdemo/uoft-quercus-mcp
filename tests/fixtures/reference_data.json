@@ -1,0 +1,290 @@
+{
+  "payload": {
+    "currentSessions": [
+      {
+        "label": "Summer 2026",
+        "value": "Summer",
+        "selected": false,
+        "header": true,
+        "group": "Summer-20265",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Summer First Sub-Session 2026 (F)",
+        "value": "20265F",
+        "selected": false,
+        "header": false,
+        "group": "Summer-20265",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Summer Second Sub-Session 2026 (S)",
+        "value": "20265S",
+        "selected": false,
+        "header": false,
+        "group": "Summer-20265",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Summer Full Session 2026 (Y)",
+        "value": "20265",
+        "selected": false,
+        "header": false,
+        "group": "Summer-20265",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Fall-Winter 2026-2027",
+        "value": "Fall-Winter",
+        "selected": false,
+        "header": true,
+        "group": "FallWinter-20269-20271",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Fall 2026 (F)",
+        "value": "20269",
+        "selected": false,
+        "header": false,
+        "group": "FallWinter-20269-20271",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Winter 2027  (S)",
+        "value": "20271",
+        "selected": false,
+        "header": false,
+        "group": "FallWinter-20269-20271",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Fall-Winter 2026-2027 (Y)",
+        "value": "20269-20271",
+        "selected": false,
+        "header": false,
+        "group": "FallWinter-20269-20271",
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      }
+    ],
+    "divisions": [
+      {
+        "label": "Faculty of Applied Science & Engineering",
+        "value": "APSC",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Faculty of Arts and Science",
+        "value": "ARTSC",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Faculty of Information",
+        "value": "FIS",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Faculty of Kinesiology and Physical Education",
+        "value": "FPEH",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      }
+    ],
+    "campuses": [
+      {
+        "label": "Scarborough",
+        "value": "Scarborough",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Mississauga",
+        "value": "University of Toronto at Mississauga",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "St. George",
+        "value": "St. George",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      }
+    ],
+    "requirements": [],
+    "courseLevels": [
+      {
+        "label": "100/A",
+        "value": "100/A",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "200/B",
+        "value": "200/B",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "300/C",
+        "value": "300/C",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "400/D",
+        "value": "400/D",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "5+",
+        "value": "5+",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      }
+    ],
+    "deliveryModes": [
+      {
+        "label": "In Person",
+        "value": "In Person",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Hybrid",
+        "value": "Hybrid",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Online Synchronous",
+        "value": "Online Synchronous",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      },
+      {
+        "label": "Online Asynchronous",
+        "value": "Online Asynchronous",
+        "selected": false,
+        "header": false,
+        "group": null,
+        "metadata": {
+          "name": null,
+          "type": null
+        }
+      }
+    ],
+    "temporaryDeliveryModes": [],
+    "creditWeights": [],
+    "dayPreferences": [],
+    "timePreferences": [],
+    "directions": {
+      "asc": "asc",
+      "desc": "desc",
+      "ASC": "ASC",
+      "DESC": "DESC"
+    }
+  },
+  "status": []
+}

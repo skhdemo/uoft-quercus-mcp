@@ -1,0 +1,431 @@
+{
+  "payload": {
+    "pageableCourse": {
+      "total": 3,
+      "courses": [
+        {
+          "id": "69dd3ea4830c3634bbb69a3b",
+          "code": "CSC108H1",
+          "name": "Introduction to Computer Programming",
+          "sectionCode": "F",
+          "campus": "St. George",
+          "sessions": [
+            "20269"
+          ],
+          "sections": [
+            {
+              "name": "LEC0201",
+              "type": "Lecture",
+              "teachMethod": "LEC",
+              "sectionNumber": "0201",
+              "meetingTimes": [
+                {
+                  "start": {
+                    "day": 1,
+                    "millisofday": 46800000
+                  },
+                  "end": {
+                    "day": 1,
+                    "millisofday": 50400000
+                  },
+                  "building": {
+                    "buildingCode": "PB",
+                    "buildingRoomNumber": "B250",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494476",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20269",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                },
+                {
+                  "start": {
+                    "day": 3,
+                    "millisofday": 46800000
+                  },
+                  "end": {
+                    "day": 3,
+                    "millisofday": 54000000
+                  },
+                  "building": {
+                    "buildingCode": "MB",
+                    "buildingRoomNumber": "128",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494466",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20269",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                }
+              ],
+              "instructors": [
+                {
+                  "firstName": "Samarendra Chandan Bind",
+                  "lastName": "Dash"
+                }
+              ],
+              "currentEnrolment": 187,
+              "maxEnrolment": 196,
+              "cancelInd": "N",
+              "waitlistInd": "Y",
+              "deliveryModes": [
+                {
+                  "session": "20269",
+                  "mode": "INPER"
+                }
+              ],
+              "currentWaitlist": 0,
+              "enrolmentInd": "P",
+              "tbaInd": "N",
+              "notes": []
+            },
+            {
+              "name": "TUT0101",
+              "type": "Tutorial",
+              "teachMethod": "TUT",
+              "sectionNumber": "0101",
+              "meetingTimes": [
+                {
+                  "start": {
+                    "day": 3,
+                    "millisofday": 50400000
+                  },
+                  "end": {
+                    "day": 3,
+                    "millisofday": 54000000
+                  },
+                  "building": {
+                    "buildingCode": "BA",
+                    "buildingRoomNumber": "1200",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494469",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20269",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                }
+              ],
+              "instructors": [
+                {
+                  "firstName": "Grace",
+                  "lastName": "Hopper"
+                }
+              ],
+              "currentEnrolment": 30,
+              "maxEnrolment": 32,
+              "cancelInd": "N",
+              "waitlistInd": "Y",
+              "deliveryModes": [
+                {
+                  "session": "20269",
+                  "mode": "INPER"
+                }
+              ],
+              "currentWaitlist": 0,
+              "enrolmentInd": "P",
+              "tbaInd": "N",
+              "notes": []
+            },
+            {
+              "name": "LEC9999",
+              "type": "Lecture",
+              "teachMethod": "LEC",
+              "sectionNumber": "9999",
+              "meetingTimes": [],
+              "instructors": [
+                {
+                  "firstName": "Ada",
+                  "lastName": ""
+                }
+              ],
+              "currentEnrolment": 0,
+              "maxEnrolment": 50,
+              "cancelInd": "N",
+              "waitlistInd": "N",
+              "deliveryModes": [
+                {
+                  "session": "20269",
+                  "mode": "ONLIN"
+                }
+              ],
+              "currentWaitlist": 0,
+              "enrolmentInd": "P",
+              "tbaInd": "Y",
+              "notes": [
+                {
+                  "name": "Section Note",
+                  "type": "SECTION",
+                  "content": "TBA section for tests"
+                }
+              ]
+            },
+            {
+              "name": "PRA0101",
+              "type": "Practical",
+              "teachMethod": "PRA",
+              "sectionNumber": "0101",
+              "meetingTimes": [
+                {
+                  "start": {
+                    "day": 5,
+                    "millisofday": 36000000
+                  },
+                  "end": {
+                    "day": 5,
+                    "millisofday": 39600000
+                  },
+                  "building": {
+                    "buildingCode": "BA",
+                    "buildingRoomNumber": "1130",
+                    "buildingRoomSuffix": "A",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/0",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20269",
+                  "repetition": "BIWEEKLY",
+                  "repetitionTime": "EVERY_OTHER_WEEK"
+                }
+              ],
+              "instructors": [
+                {
+                  "firstName": "",
+                  "lastName": "Lovelace"
+                }
+              ],
+              "currentEnrolment": 10,
+              "maxEnrolment": 10,
+              "cancelInd": "N",
+              "waitlistInd": "Y",
+              "deliveryModes": [
+                {
+                  "session": "20269",
+                  "mode": "INPER"
+                }
+              ],
+              "currentWaitlist": 2,
+              "enrolmentInd": "P",
+              "tbaInd": "N",
+              "notes": []
+            }
+          ],
+          "department": {
+            "code": "CSC",
+            "name": "Department of Computer Science"
+          },
+          "faculty": {
+            "code": "ARTSC",
+            "name": "Faculty of Arts and Science"
+          },
+          "title": null,
+          "notes": [],
+          "cancelInd": "N",
+          "cmCourseInfo": {
+            "description": "Programming in a language such as Python. Elementary data types, lists, maps. Program structure: control flow, functions, classes, objects, methods. Algorithms and problem solving. Searching, sorting, and complexity. Unit testing. Floating-point numbers and numerical computation. No prior programming experience required. NOTE: You may take CSC148H1 after CSC108H1. You may not take CSC108H1 in the same term as, or after taking, any of CSC110Y1/ CSC111H1/ CSC120H1/ CSC148H1.",
+            "title": "Introduction to Computer Programming",
+            "prerequisitesText": "",
+            "corequisitesText": "",
+            "exclusionsText": "<p>CSC110Y1, CSC111H1, CSC120H1, CSC121H1, CSC148H1, CSC108H5, CSC148H5, CSCA08H3, CSCA20H3, CSCA48H3</p>",
+            "division": "Arts and Science, Faculty of",
+            "breadthRequirements": [
+              "The Physical and Mathematical Universes (5)"
+            ],
+            "distributionRequirements": [
+              "Science"
+            ]
+          }
+        },
+        {
+          "id": "69dd3ea4830c3634bbb69a3c",
+          "code": "CSC108H1",
+          "name": "Introduction to Computer Programming",
+          "sectionCode": "S",
+          "campus": "St. George",
+          "sessions": [
+            "20271"
+          ],
+          "sections": [
+            {
+              "name": "LEC5101",
+              "type": "Lecture",
+              "teachMethod": "LEC",
+              "sectionNumber": "5101",
+              "meetingTimes": [
+                {
+                  "start": {
+                    "day": 1,
+                    "millisofday": 64800000
+                  },
+                  "end": {
+                    "day": 1,
+                    "millisofday": 72000000
+                  },
+                  "building": {
+                    "buildingCode": "MP",
+                    "buildingRoomNumber": "203",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494490",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20271",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                },
+                {
+                  "start": {
+                    "day": 3,
+                    "millisofday": 64800000
+                  },
+                  "end": {
+                    "day": 3,
+                    "millisofday": 68400000
+                  },
+                  "building": {
+                    "buildingCode": "MP",
+                    "buildingRoomNumber": "103",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494490",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20271",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                }
+              ],
+              "instructors": [],
+              "currentEnrolment": 82,
+              "maxEnrolment": 196,
+              "cancelInd": "N",
+              "waitlistInd": "Y",
+              "deliveryModes": [
+                {
+                  "session": "20271",
+                  "mode": "INPER"
+                }
+              ],
+              "currentWaitlist": 0,
+              "enrolmentInd": "P",
+              "tbaInd": "N",
+              "notes": []
+            }
+          ],
+          "department": {
+            "code": "CSC",
+            "name": "Department of Computer Science"
+          },
+          "faculty": {
+            "code": "ARTSC",
+            "name": "Faculty of Arts and Science"
+          },
+          "title": null,
+          "notes": [],
+          "cancelInd": "N",
+          "cmCourseInfo": {
+            "description": "Programming in a language such as Python. Elementary data types, lists, maps. Program structure: control flow, functions, classes, objects, methods. Algorithms and problem solving. Searching, sorting, and complexity. Unit testing. Floating-point numbers and numerical computation. No prior programming experience required. NOTE: You may take CSC148H1 after CSC108H1. You may not take CSC108H1 in the same term as, or after taking, any of CSC110Y1/ CSC111H1/ CSC120H1/ CSC148H1.",
+            "title": "Introduction to Computer Programming",
+            "prerequisitesText": "",
+            "corequisitesText": "",
+            "exclusionsText": "<p>CSC110Y1, CSC111H1, CSC120H1, CSC121H1, CSC148H1, CSC108H5, CSC148H5, CSCA08H3, CSCA20H3, CSCA48H3</p>",
+            "division": "Arts and Science, Faculty of",
+            "breadthRequirements": [
+              "The Physical and Mathematical Universes (5)"
+            ],
+            "distributionRequirements": [
+              "Science"
+            ]
+          }
+        },
+        {
+          "id": "696f7d2320609159511a6637",
+          "code": "CSC108H1",
+          "name": "Introduction to Computer Programming",
+          "sectionCode": "Y",
+          "campus": "St. George",
+          "sessions": [
+            "20269-20271"
+          ],
+          "sections": [
+            {
+              "name": "LEC5101",
+              "type": "Lecture",
+              "teachMethod": "LEC",
+              "sectionNumber": "5101",
+              "meetingTimes": [
+                {
+                  "start": {
+                    "day": 3,
+                    "millisofday": 64800000
+                  },
+                  "end": {
+                    "day": 3,
+                    "millisofday": 75600000
+                  },
+                  "building": {
+                    "buildingCode": "MP",
+                    "buildingRoomNumber": "203",
+                    "buildingRoomSuffix": "",
+                    "buildingUrl": "https://map.utoronto.ca/?id=1809#!m/494490",
+                    "buildingName": null
+                  },
+                  "sessionCode": "20265",
+                  "repetition": "WEEKLY",
+                  "repetitionTime": "ONCE_A_WEEK"
+                }
+              ],
+              "instructors": [
+                {
+                  "firstName": "Shiva",
+                  "lastName": "Akbari"
+                }
+              ],
+              "currentEnrolment": 149,
+              "maxEnrolment": 196,
+              "cancelInd": "N",
+              "waitlistInd": "Y",
+              "deliveryModes": [
+                {
+                  "session": "20265",
+                  "mode": "INPER"
+                }
+              ],
+              "currentWaitlist": 0,
+              "enrolmentInd": "P",
+              "tbaInd": "N",
+              "notes": []
+            }
+          ],
+          "department": {
+            "code": "CSC",
+            "name": "Department of Computer Science"
+          },
+          "faculty": {
+            "code": "ARTSC",
+            "name": "Faculty of Arts and Science"
+          },
+          "title": null,
+          "notes": [],
+          "cancelInd": "N",
+          "cmCourseInfo": {
+            "description": "Programming in a language such as Python. Elementary data types, lists, maps. Program structure: control flow, functions, classes, objects, methods. Algorithms and problem solving. Searching, sorting, and complexity. Unit testing. Floating-point numbers and numerical computation. No prior programming experience required. NOTE: You may take CSC148H1 after CSC108H1. You may not take CSC108H1 in the same term as, or after taking, any of CSC110Y1/ CSC111H1/ CSC120H1/ CSC148H1.",
+            "title": "Introduction to Computer Programming",
+            "prerequisitesText": "",
+            "corequisitesText": "",
+            "exclusionsText": "<p>CSC110Y1, CSC111H1, CSC120H1, CSC121H1, CSC148H1, CSC108H5, CSC148H5, CSCA08H3, CSCA20H3, CSCA48H3</p>",
+            "division": "Arts and Science, Faculty of",
+            "breadthRequirements": [
+              "The Physical and Mathematical Universes (5)"
+            ],
+            "distributionRequirements": [
+              "Science"
+            ]
+          }
+        }
+      ]
+    },
+    "divisionalLegends": [],
+    "divisionalEnrolmentIndicators": []
+  },
+  "status": []
+}

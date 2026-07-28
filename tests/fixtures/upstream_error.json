@@ -1,0 +1,9 @@
+{
+  "payload": null,
+  "status": [
+    {
+      "code": "ERROR",
+      "message": "An unexpected error occurred while processing the request."
+    }
+  ]
+}
