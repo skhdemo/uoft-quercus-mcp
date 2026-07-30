@@ -34,3 +34,6 @@ Thumbs.db
 
 # uv / packaging
 uv-cache/
+
+# Local agent plans / executor briefs (not part of the published package)
+agents/

@@ -95,6 +95,8 @@ Input:
 
 Search by course code or title. Requires at least one session and one division. Results are concise summaries with pagination (`page` is one-based; `page_size` max 50).
 
+Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Students often omit the campus suffix (`CSCA08` vs `CSCA08H3`). Commonly, the final `H`/`Y` is course weight and the final digit is campus — usually `1` St. George, `3` UTSC, `5` UTM. Pick the matching division from `get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM). Short code-like queries are expanded using that division and are never treated as title searches.
+
 Example input:
 
 ```json
@@ -107,9 +109,21 @@ Example input:
 }
 ```
 
+UTSC short-code example:
+
+```json
+{
+  "query": "CSCA08",
+  "sessions": ["20269"],
+  "divisions": ["SCAR"],
+  "page": 1,
+  "page_size": 10
+}
+```
+
 ### `get_course_details`
 
-Fetch normalized course/section/meeting details for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name.
+Fetch normalized course/section/meeting details for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name. Short codes without a campus suffix are expanded across common `H1`/`Y1`/`H3`/`Y3`/`H5`/`Y5` forms when needed.
 
 Example input:
 

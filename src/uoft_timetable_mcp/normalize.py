@@ -6,6 +6,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from uoft_timetable_mcp.course_codes import is_course_code_query
 from uoft_timetable_mcp.models import (
     Course,
     CourseSearchItem,
@@ -30,7 +31,6 @@ _DAY_NAMES: dict[int, str] = {
 
 _MAX_MILLIS_OF_DAY = 86_400_000
 _COMBINED_SESSION_RE = re.compile(r"^(\d{5})-(\d{5})$")
-_COURSE_CODE_QUERY_RE = re.compile(r"^[A-Z]{2,4}\d{3}[A-Z0-9]*$")
 
 
 def utc_now() -> datetime:
@@ -191,9 +191,11 @@ def classify_search_query(query: str) -> tuple[str, str, bool]:
     """Classify a search query as course-code or title.
 
     Returns ``(course_code, course_title, is_code_query)``.
+    Full and short codes (including UTSC/UTM forms like ``CSCA08H3`` /
+    ``CSCA08``) are treated as course codes so they are never sent as titles.
     """
     normalized = query.strip().upper()
-    if _COURSE_CODE_QUERY_RE.fullmatch(normalized):
+    if is_course_code_query(normalized):
         return normalized, "", True
     return "", query.strip(), False
 

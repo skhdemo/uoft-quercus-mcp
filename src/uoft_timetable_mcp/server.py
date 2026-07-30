@@ -18,9 +18,15 @@ from pydantic import ValidationError
 from uoft_timetable_mcp import __version__
 from uoft_timetable_mcp.client import TimetableClient
 from uoft_timetable_mcp.conflicts import ResolvedSection, analyze_conflicts
+from uoft_timetable_mcp.course_codes import (
+    expand_short_course_code,
+    is_short_course_code,
+    short_code_not_found_message,
+)
 from uoft_timetable_mcp.errors import (
     CourseNotFoundError,
     TimetableError,
+    TimetableUpstreamError,
     TimetableValidationError,
     to_mcp_error,
 )
@@ -55,9 +61,20 @@ _CHECK_CONFLICTS_DESCRIPTION = (
     "is verified, call this tool with every selected section. Only claim the "
     "schedule is verified when `has_conflicts` is false, `transition_violations` "
     "is empty, and `is_complete` is true. If `is_complete` is false, say the "
-    "schedule could not be fully verified. "
+    "schedule could not be fully verified. Prefer full parent course codes when "
+    "selecting sections (e.g. CSCA08H3, not CSCA08). "
     "Unofficial Timetable Builder data; values may change and this project is "
     "not affiliated with the University of Toronto."
+)
+
+_COURSE_CODE_GUIDANCE = (
+    "Prefer full UofT course codes when known (e.g. CSC108H1, CSCA08H3). "
+    "Students often omit the campus suffix (CSCA08 vs CSCA08H3). Commonly, the "
+    "final H/Y is course weight and the final digit is campus — usually 1 St. "
+    "George, 3 UTSC, 5 UTM (so H1/Y1, H3/Y3, H5/Y5). Choose the matching "
+    "division from get_reference_data (SCAR for UTSC, ERIN for UTM, ARTSC for "
+    "Arts & Science St. George, etc.). If a short code fails, retry with the "
+    "full code and correct division rather than guessing randomly."
 )
 
 logger = logging.getLogger(__name__)
@@ -205,8 +222,10 @@ mcp = FastMCP(
     instructions=(
         "Unofficial University of Toronto Timetable Builder data tools. "
         "Discover sessions and filters, search courses, fetch section details, "
-        "and deterministically check schedule conflicts. Data may change; "
-        "this project is not affiliated with the University of Toronto."
+        "and deterministically check schedule conflicts. "
+        f"{_COURSE_CODE_GUIDANCE} "
+        "Data may change; this project is not affiliated with the University "
+        "of Toronto."
     ),
     lifespan=_lifespan,
     mask_error_details=True,
@@ -242,7 +261,10 @@ async def get_reference_data() -> dict[str, Any]:
         "get_course_details for full section/meeting data. "
         "Requires at least one session and one division from get_reference_data. "
         "page is one-based; page_size must be between 1 and 50. "
-        f"{_DATA_DISCLAIMER}"
+        f"{_COURSE_CODE_GUIDANCE} "
+        "Short code-like queries are expanded using the selected division "
+        "(never sent as a title search). Empty courses means no match — try the "
+        f"full code and correct division. {_DATA_DISCLAIMER}"
     )
 )
 async def search_courses(
@@ -281,23 +303,42 @@ async def search_courses(
     course_code, course_title, is_code = classify_search_query(params.query)
     state = get_state()
     try:
-        pageable = await state.client.search_courses(
-            sessions=params.sessions,
-            divisions=params.divisions,
-            course_code=course_code,
-            course_title=course_title,
-            search_course_description=(
-                params.search_description if not is_code else False
-            ),
-            campuses=params.campuses,
-            instructor=params.instructor or "",
-            course_levels=params.course_levels,
-            delivery_modes=params.delivery_modes,
-            available_space=params.available_space_only,
-            wait_listable=params.waitlistable_only,
-            page=params.page,
-            page_size=params.page_size,
-        )
+        if is_code and is_short_course_code(course_code):
+            pageable = await _search_with_short_code_expansion(
+                state, params, course_code
+            )
+        elif is_code:
+            pageable = await state.client.search_courses(
+                sessions=params.sessions,
+                divisions=params.divisions,
+                course_code=course_code,
+                course_title="",
+                search_course_description=False,
+                campuses=params.campuses,
+                instructor=params.instructor or "",
+                course_levels=params.course_levels,
+                delivery_modes=params.delivery_modes,
+                available_space=params.available_space_only,
+                wait_listable=params.waitlistable_only,
+                page=params.page,
+                page_size=params.page_size,
+            )
+        else:
+            pageable = await state.client.search_courses(
+                sessions=params.sessions,
+                divisions=params.divisions,
+                course_code="",
+                course_title=course_title,
+                search_course_description=params.search_description,
+                campuses=params.campuses,
+                instructor=params.instructor or "",
+                course_levels=params.course_levels,
+                delivery_modes=params.delivery_modes,
+                available_space=params.available_space_only,
+                wait_listable=params.waitlistable_only,
+                page=params.page,
+                page_size=params.page_size,
+            )
     except TimetableError as exc:
         raise_tool_error(exc)
 
@@ -325,7 +366,8 @@ async def search_courses(
         "required session. Optionally filter by section_code term half "
         "(F, S, or Y) — not a LEC/TUT component name. Returns all matching "
         "upstream records for that course/session. Raises course_not_found "
-        f"when nothing matches. {_DATA_DISCLAIMER}"
+        f"when nothing matches. {_COURSE_CODE_GUIDANCE} "
+        f"{_DATA_DISCLAIMER}"
     )
 )
 async def get_course_details(
@@ -344,13 +386,106 @@ async def get_course_details(
         raise_tool_error(TimetableValidationError(message))
 
     state = get_state()
+    fetched_at = state.clock()
+    matched, fatal_error = await _lookup_course_details(state, params, fetched_at)
+
+    if not matched and is_short_course_code(params.course_code) and fatal_error is None:
+        # No division on this tool — try all common campus/weight suffixes.
+        for candidate in expand_short_course_code(params.course_code, divisions=None):
+            if candidate == params.course_code:
+                continue
+            candidate_params = CourseDetailsInput(
+                course_code=candidate,
+                session=params.session,
+                section_code=params.section_code,
+            )
+            matched, fatal_error = await _lookup_course_details(
+                state,
+                candidate_params,
+                fetched_at,
+            )
+            if fatal_error is not None:
+                raise_tool_error(fatal_error)
+            if matched:
+                break
+
+    if fatal_error is not None and not matched:
+        raise_tool_error(fatal_error)
+
+    if not matched:
+        message = (
+            short_code_not_found_message(params.course_code, params.session)
+            if is_short_course_code(params.course_code)
+            else (
+                f"No course records matched {params.course_code} in session "
+                f"{params.session}."
+            )
+        )
+        raise_tool_error(CourseNotFoundError(message))
+
+    result = CourseDetailsResult(courses=matched, found=True, fetched_at=fetched_at)
+    return model_to_public_dict(result)
+
+
+async def _search_with_short_code_expansion(
+    state: RuntimeState,
+    params: SearchCoursesInput,
+    short_code: str,
+) -> dict[str, Any]:
+    """Try division-aware full-code candidates; return the first non-empty hit.
+
+    Short codes must never be sent as ``courseTitle`` (that caused catalogue dumps).
+    Per-candidate ``TimetableUpstreamError`` (e.g. HTTP 404) is treated as a miss
+    so later suffixes can still succeed. Timeouts/network/rate-limit errors propagate.
+    """
+    candidates = expand_short_course_code(short_code, params.divisions)
+    empty: dict[str, Any] = {"total": 0, "courses": []}
+    last_pageable = empty
+    for candidate in candidates:
+        try:
+            pageable = await state.client.search_courses(
+                sessions=params.sessions,
+                divisions=params.divisions,
+                course_code=candidate,
+                course_title="",
+                search_course_description=False,
+                campuses=params.campuses,
+                instructor=params.instructor or "",
+                course_levels=params.course_levels,
+                delivery_modes=params.delivery_modes,
+                available_space=params.available_space_only,
+                wait_listable=params.waitlistable_only,
+                page=params.page,
+                page_size=params.page_size,
+            )
+        except TimetableUpstreamError:
+            # Wrong suffix / not offered this term — try next candidate.
+            continue
+        last_pageable = pageable
+        if pageable["total"] > 0:
+            return pageable
+    return last_pageable
+
+
+async def _lookup_course_details(
+    state: RuntimeState,
+    params: CourseDetailsInput,
+    fetched_at: datetime,
+) -> tuple[list[Course], TimetableError | None]:
+    """Fetch and filter course details.
+
+    Returns ``(matched, fatal_error)``. ``fatal_error`` is set for non-expandable
+    failures (timeouts, network, rate limits). Upstream application errors on a
+    single candidate are treated as empty matches so short-code expansion can continue.
+    """
     try:
         raw_courses = await state.client.get_courses_by_code(params.course_code)
+    except TimetableUpstreamError:
+        return [], None
     except TimetableError as exc:
-        raise_tool_error(exc)
+        return [], exc
 
-    fetched_at = state.clock()
-    matched = []
+    matched: list[Course] = []
     for raw in raw_courses:
         sessions = raw.get("sessions")
         if not session_matches(params.session, sessions):
@@ -363,17 +498,7 @@ async def get_course_details(
             ):
                 continue
         matched.append(normalize_course(raw, fetched_at=fetched_at))
-
-    if not matched:
-        raise_tool_error(
-            CourseNotFoundError(
-                f"No course records matched {params.course_code} in session "
-                f"{params.session}."
-            )
-        )
-
-    result = CourseDetailsResult(courses=matched, found=True, fetched_at=fetched_at)
-    return model_to_public_dict(result)
+    return matched, None
 
 
 @mcp.tool(description=_CHECK_CONFLICTS_DESCRIPTION)

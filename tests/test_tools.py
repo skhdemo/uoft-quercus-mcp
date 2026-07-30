@@ -119,6 +119,11 @@ async def test_v1_tools_are_discoverable(configured: None) -> None:
     assert "transition_violations" in conflicts_description
     assert "is_complete" in conflicts_description
     assert "verified" in conflicts_description.lower()
+    assert "campus suffix" in search_description.lower()
+    assert "SCAR" in search_description
+    assert "H3" in search_description
+    assert "campus suffix" in details_description.lower()
+    assert "full" in conflicts_description.lower()
 
 
 @respx.mock
@@ -285,6 +290,143 @@ async def test_search_courses_routes_code_and_title_queries(configured: None) ->
         assert title_body["courseCodeAndTitleProps"]["searchCourseDescription"] is True
 
 
+def _search_hit(code: str, *, section_code: str = "F") -> dict[str, Any]:
+    return {
+        "payload": {
+            "pageableCourse": {
+                "total": 1,
+                "courses": [
+                    {
+                        "id": "mock-1",
+                        "code": code,
+                        "name": f"Mock {code}",
+                        "sectionCode": section_code,
+                        "campus": "Scarborough",
+                        "sessions": ["20269"],
+                        "sections": [{"name": "LEC0101"}],
+                    }
+                ],
+            },
+            "divisionalLegends": [],
+            "divisionalEnrolmentIndicators": [],
+        },
+        "status": [],
+    }
+
+
+def _empty_search() -> dict[str, Any]:
+    return {
+        "payload": {
+            "pageableCourse": {"total": 0, "courses": []},
+            "divisionalLegends": [],
+            "divisionalEnrolmentIndicators": [],
+        },
+        "status": [],
+    }
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_courses_full_utsc_code_not_title(configured: None) -> None:
+    route = respx.post(f"{BASE_URL}/getPageableCourses").mock(
+        return_value=httpx.Response(200, json=_search_hit("CSCA08H3"))
+    )
+
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "search_courses",
+            {
+                "query": "CSCA08H3",
+                "sessions": ["20269"],
+                "divisions": ["SCAR"],
+            },
+        )
+
+    body = json.loads(route.calls.last.request.content.decode())
+    assert body["courseCodeAndTitleProps"]["courseCode"] == "CSCA08H3"
+    assert body["courseCodeAndTitleProps"]["courseTitle"] == ""
+    assert result.data["courses"][0]["code"] == "CSCA08H3"
+    assert result.data["total"] == 1
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_courses_short_code_expands_for_scar(configured: None) -> None:
+    def _side_effect(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode())
+        code = body["courseCodeAndTitleProps"]["courseCode"]
+        title = body["courseCodeAndTitleProps"]["courseTitle"]
+        # Regression: short/code-like queries must never become title searches.
+        assert title == ""
+        assert code != "CSCA08"
+        if code == "CSCA08H3":
+            return httpx.Response(200, json=_search_hit("CSCA08H3"))
+        return httpx.Response(200, json=_empty_search())
+
+    route = respx.post(f"{BASE_URL}/getPageableCourses").mock(side_effect=_side_effect)
+
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "search_courses",
+            {
+                "query": "CSCA08",
+                "sessions": ["20269"],
+                "divisions": ["SCAR"],
+            },
+        )
+
+    requested_codes = [
+        json.loads(call.request.content.decode())["courseCodeAndTitleProps"][
+            "courseCode"
+        ]
+        for call in route.calls
+    ]
+    assert requested_codes[0] == "CSCA08H3"
+    assert "CSCA08" not in requested_codes
+    assert result.data["courses"][0]["code"] == "CSCA08H3"
+    assert result.data["total"] == 1
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_courses_short_code_skips_candidate_404(configured: None) -> None:
+    def _side_effect(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode())
+        code = body["courseCodeAndTitleProps"]["courseCode"]
+        title = body["courseCodeAndTitleProps"]["courseTitle"]
+        assert title == ""
+        assert code != "CSCA08"
+        if code == "CSCA08H3":
+            return httpx.Response(404, text="not found")
+        if code == "CSCA08Y3":
+            return httpx.Response(200, json=_search_hit("CSCA08Y3", section_code="Y"))
+        return httpx.Response(200, json=_empty_search())
+
+    route = respx.post(f"{BASE_URL}/getPageableCourses").mock(side_effect=_side_effect)
+
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "search_courses",
+            {
+                "query": "CSCA08",
+                "sessions": ["20269"],
+                "divisions": ["SCAR"],
+            },
+        )
+
+    requested_codes = [
+        json.loads(call.request.content.decode())["courseCodeAndTitleProps"][
+            "courseCode"
+        ]
+        for call in route.calls
+    ]
+    assert requested_codes[:2] == ["CSCA08H3", "CSCA08Y3"]
+    assert route.call_count >= 2
+    assert result.is_error is False
+    assert result.data["courses"][0]["code"] == "CSCA08Y3"
+    assert result.data["total"] == 1
+
+
 @respx.mock
 @pytest.mark.asyncio
 async def test_search_courses_concise_pagination_and_empty(
@@ -413,6 +555,134 @@ async def test_get_course_details_not_found_error_shape(configured: None) -> Non
     assert payload["error"]["retryable"] is False
     assert "CSC108H1" in payload["error"]["message"]
     assert _error_message_has_no_traceback(payload["error"]["message"])
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_get_course_details_short_code_expands(configured: None) -> None:
+    short_route = respx.get(
+        url__regex=r".*/getCoursesByCodeAndSectionCode/CSCA08$"
+    ).mock(return_value=httpx.Response(404, text="not found"))
+    full_fixture = {
+        "payload": {
+            "pageableCourse": {
+                "total": 1,
+                "courses": [
+                    {
+                        "id": "mock-csca08",
+                        "code": "CSCA08H3",
+                        "name": "Introduction to Computer Science I",
+                        "sectionCode": "F",
+                        "campus": "Scarborough",
+                        "sessions": ["20269"],
+                        "sections": [
+                            {
+                                "name": "LEC01",
+                                "type": "Lecture",
+                                "teachMethod": "LEC",
+                                "sectionNumber": "01",
+                                "meetingTimes": [],
+                                "instructors": [],
+                                "currentEnrolment": 10,
+                                "maxEnrolment": 100,
+                                "cancelInd": "N",
+                                "waitlistInd": "N",
+                                "deliveryModes": [],
+                                "currentWaitlist": 0,
+                                "enrolmentInd": "P",
+                                "tbaInd": "N",
+                                "notes": [],
+                            }
+                        ],
+                        "department": {"code": "CSC", "name": "Computer Science"},
+                        "faculty": {"code": "SCAR", "name": "UTSC"},
+                        "title": "Introduction to Computer Science I",
+                        "notes": [],
+                        "cancelInd": "N",
+                        "cmCourseInfo": {
+                            "description": "Intro CS",
+                            "title": "Introduction to Computer Science I",
+                            "prerequisitesText": "",
+                            "corequisitesText": "",
+                            "exclusionsText": "",
+                            "division": "University of Toronto Scarborough",
+                            "breadthRequirements": [],
+                            "distributionRequirements": [],
+                        },
+                    }
+                ],
+            },
+            "divisionalLegends": [],
+            "divisionalEnrolmentIndicators": [],
+        },
+        "status": [],
+    }
+    full_route = respx.get(
+        url__regex=r".*/getCoursesByCodeAndSectionCode/CSCA08H3$"
+    ).mock(return_value=httpx.Response(200, json=full_fixture))
+    # Other suffix candidates return empty.
+    for suffix in ("H1", "Y1", "Y3", "H5", "Y5"):
+        respx.get(
+            url__regex=rf".*/getCoursesByCodeAndSectionCode/CSCA08{suffix}$"
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "payload": {
+                        "pageableCourse": {"total": 0, "courses": []},
+                        "divisionalLegends": [],
+                        "divisionalEnrolmentIndicators": [],
+                    },
+                    "status": [],
+                },
+            )
+        )
+
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "get_course_details",
+            {"course_code": "CSCA08", "session": "20269"},
+        )
+
+    assert short_route.called
+    assert full_route.called
+    assert result.data["found"] is True
+    assert result.data["courses"][0]["code"] == "CSCA08H3"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_get_course_details_short_code_not_found_mentions_suffixes(
+    configured: None,
+) -> None:
+    respx.get(url__regex=r".*/getCoursesByCodeAndSectionCode/CSCA08.*$").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "payload": {
+                    "pageableCourse": {"total": 0, "courses": []},
+                    "divisionalLegends": [],
+                    "divisionalEnrolmentIndicators": [],
+                },
+                "status": [],
+            },
+        )
+    )
+
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError) as exc_info:
+            await client.call_tool(
+                "get_course_details",
+                {"course_code": "CSCA08", "session": "20269"},
+            )
+
+    payload = _parse_tool_error(exc_info.value)
+    assert payload["error"]["code"] == "course_not_found"
+    message = payload["error"]["message"]
+    assert "campus suffix" in message.lower()
+    assert "H3" in message
+    assert "CSCA08H3" in message
+    assert _error_message_has_no_traceback(message)
 
 
 @respx.mock

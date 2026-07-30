@@ -9,6 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from uoft_timetable_mcp.course_codes import (
+    expand_short_course_code,
+    is_course_code_query,
+    is_short_course_code,
+    suffixes_for_divisions,
+)
 from uoft_timetable_mcp.normalize import (
     classify_search_query,
     compute_available_space,
@@ -381,6 +387,10 @@ def test_session_matching_rules(
     [
         ("CSC108H1", "CSC108H1", "", True),
         ("csc108h1", "CSC108H1", "", True),
+        ("CSCA08H3", "CSCA08H3", "", True),
+        ("MATA67H3", "MATA67H3", "", True),
+        ("CSCA08", "CSCA08", "", True),
+        ("CSC108", "CSC108", "", True),
         ("computer programming", "", "computer programming", False),
         ("CS", "", "CS", False),
         ("  MAT137Y1  ", "MAT137Y1", "", True),
@@ -396,3 +406,62 @@ def test_search_query_classification(
     assert code == expected_code
     assert title == expected_title
     assert matched is is_code
+
+
+@pytest.mark.parametrize(
+    ("value", "is_code", "is_short"),
+    [
+        ("CSCA08H3", True, False),
+        ("MATA67H3", True, False),
+        ("CSC108H1", True, False),
+        ("CSCA08", True, True),
+        ("CSC108", True, True),
+        ("computer programming", False, False),
+        ("CS", False, False),
+    ],
+)
+def test_course_code_helpers(value: str, is_code: bool, is_short: bool) -> None:
+    assert is_course_code_query(value) is is_code
+    assert is_short_course_code(value) is is_short
+
+
+def test_expand_short_code_scar_includes_h3() -> None:
+    expanded = expand_short_course_code("CSCA08", ["SCAR"])
+    assert expanded == ["CSCA08H3", "CSCA08Y3"]
+    assert "CSCA08H3" in expanded
+
+
+def test_expand_short_code_artsc_includes_h1() -> None:
+    expanded = expand_short_course_code("CSC108", ["ARTSC"])
+    assert expanded == ["CSC108H1", "CSC108Y1"]
+
+
+def test_expand_short_code_multiple_divisions_stable_union() -> None:
+    expanded = expand_short_course_code("CSC108", ["ARTSC", "SCAR", "ERIN"])
+    assert expanded == [
+        "CSC108H1",
+        "CSC108Y1",
+        "CSC108H3",
+        "CSC108Y3",
+        "CSC108H5",
+        "CSC108Y5",
+    ]
+
+
+def test_expand_short_code_no_divisions_tries_all_common() -> None:
+    assert expand_short_course_code("CSCA08", None) == [
+        "CSCA08H1",
+        "CSCA08Y1",
+        "CSCA08H3",
+        "CSCA08Y3",
+        "CSCA08H5",
+        "CSCA08Y5",
+    ]
+
+
+def test_suffixes_for_divisions_mapping() -> None:
+    assert suffixes_for_divisions(["SCAR"]) == ["H3", "Y3"]
+    assert suffixes_for_divisions(["ERIN"]) == ["H5", "Y5"]
+    assert suffixes_for_divisions(["ARTSC"]) == ["H1", "Y1"]
+    assert suffixes_for_divisions(["APSC"]) == ["H1", "Y1"]
+    assert suffixes_for_divisions(None) == ["H1", "Y1", "H3", "Y3", "H5", "Y5"]
