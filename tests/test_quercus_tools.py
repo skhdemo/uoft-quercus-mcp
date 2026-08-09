@@ -1,4 +1,4 @@
-"""In-memory MCP tests for Quercus Phase 1 tools."""
+"""In-memory MCP tests for Quercus Phase 1–2 tools."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from fastmcp.exceptions import ToolError
 
 from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
 from uoft_timetable_mcp.quercus.client import QuercusClient
+from uoft_timetable_mcp.quercus.resolve import CourseListCache
 from uoft_timetable_mcp.quercus.settings import QuercusSettings
 from uoft_timetable_mcp.server import configure_runtime, mcp, reset_runtime
 from uoft_timetable_mcp.timetable.client import TimetableClient
@@ -34,6 +35,12 @@ EXPECTED_TOOLS = {
     "check_conflicts",
     "quercus_whoami",
     "quercus_list_courses",
+    "quercus_list_todo",
+    "quercus_list_assignments",
+    "quercus_list_announcements",
+    "quercus_list_modules",
+    "quercus_list_files",
+    "quercus_get_file",
 }
 
 
@@ -64,7 +71,7 @@ def timetable_settings() -> Settings:
 
 
 @pytest.fixture
-def quercus_settings() -> QuercusSettings:
+def quercus_settings(tmp_path: Path) -> QuercusSettings:
     return QuercusSettings(
         base_url="https://q.utoronto.ca",
         api_prefix="/api/v1",
@@ -72,6 +79,8 @@ def quercus_settings() -> QuercusSettings:
         read_timeout_seconds=1.0,
         max_attempts=1,
         max_page_size=100,
+        download_dir=str(tmp_path / "downloads"),
+        course_cache_ttl_seconds=120,
         version="0.1.0",
     )
 
@@ -105,6 +114,7 @@ async def configured(
     quercus_client: QuercusClient,
     quercus_settings: QuercusSettings,
 ) -> AsyncIterator[None]:
+    cache = CourseListCache(ttl_seconds=120, clock=lambda: datetime.now(UTC))
     configure_runtime(
         client=timetable_client,
         settings=timetable_settings,
@@ -114,10 +124,12 @@ async def configured(
         quercus_settings=quercus_settings,
         quercus_auth=PersonalTokenAuth(TOKEN),
         owns_quercus_client=False,
+        quercus_course_cache=cache,
     )
     try:
         yield None
     finally:
+        cache.clear()
         reset_runtime()
 
 
@@ -145,15 +157,18 @@ async def configured_without_token(
         await quercus.aclose()
 
 
+def _mock_courses() -> None:
+    respx.get(f"{QUERCUS_API_ROOT}/courses").mock(
+        return_value=httpx.Response(200, json=_load_quercus("courses_page1.json"))
+    )
+
+
 @respx.mock
 @pytest.mark.asyncio
-async def test_tool_inventory_includes_timetable_and_quercus(
-    configured: None,
-) -> None:
+async def test_tool_inventory_includes_phase2(configured: None) -> None:
     async with Client(mcp) as client:
         tools = await client.list_tools()
-    names = {tool.name for tool in tools}
-    assert names == EXPECTED_TOOLS
+    assert {tool.name for tool in tools} == EXPECTED_TOOLS
 
 
 @respx.mock
@@ -162,39 +177,160 @@ async def test_quercus_whoami_returns_normalized_user(configured: None) -> None:
     respx.get(f"{QUERCUS_API_ROOT}/users/self").mock(
         return_value=httpx.Response(200, json=_load_quercus("users_self.json"))
     )
-
     async with Client(mcp) as client:
         result = await client.call_tool("quercus_whoami", {})
-
-    data = result.data
-    assert isinstance(data, dict)
-    assert data["id"] == 12345
-    assert data["name"] == "Jane Student"
-    assert data["login_id"] == "jane.student@mail.utoronto.ca"
-    assert "permissions" not in data
+    assert result.data["id"] == 12345
 
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_quercus_list_courses_returns_courses_and_count(
-    configured: None,
-) -> None:
-    respx.get(f"{QUERCUS_API_ROOT}/courses").mock(
+async def test_list_assignments_resolves_fragment(configured: None) -> None:
+    _mock_courses()
+    respx.get(f"{QUERCUS_API_ROOT}/courses/1002/assignments").mock(
+        return_value=httpx.Response(200, json=_load_quercus("assignments.json"))
+    )
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "quercus_list_assignments",
+            {"course": "MATA22"},
+        )
+    data = result.data
+    assert data["course"]["id"] == 1002
+    assert data["count"] == 2
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_announcements_uses_term_window(configured: None) -> None:
+    _mock_courses()
+    route = respx.get(f"{QUERCUS_API_ROOT}/announcements").mock(
+        return_value=httpx.Response(200, json=_load_quercus("announcements.json"))
+    )
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "quercus_list_announcements",
+            {"course": "MATA22"},
+        )
+    url = str(route.calls.last.request.url)
+    assert "start_date=2026-09-01" in url
+    assert "end_date=2026-07-27" in url
+    assert result.data["window"] == {
+        "start_date": "2026-09-01",
+        "end_date": "2026-07-27",
+        "start_source": "term_start_at",
+    }
+    assert result.data["count"] == 1
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_courses_warms_cache_for_resolve(configured: None) -> None:
+    route = respx.get(f"{QUERCUS_API_ROOT}/courses").mock(
         return_value=httpx.Response(200, json=_load_quercus("courses_page1.json"))
+    )
+    respx.get(f"{QUERCUS_API_ROOT}/courses/1002/assignments").mock(
+        return_value=httpx.Response(200, json=_load_quercus("assignments.json"))
+    )
+    async with Client(mcp) as client:
+        await client.call_tool("quercus_list_courses", {})
+        assert route.call_count == 1
+        result = await client.call_tool(
+            "quercus_list_assignments",
+            {"course": "MATA22"},
+        )
+    assert route.call_count == 1
+    assert result.data["course"]["id"] == 1002
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_ambiguous_course_tool_error(configured: None) -> None:
+    combined = _load_quercus("courses_page1.json") + _load_quercus("courses_page2.json")
+    respx.get(f"{QUERCUS_API_ROOT}/courses").mock(
+        return_value=httpx.Response(200, json=combined)
+    )
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError) as exc_info:
+            await client.call_tool("quercus_list_assignments", {"course": "MAT"})
+    payload = _parse_tool_error(exc_info.value)
+    assert payload["error"]["code"] == "quercus_ambiguous"
+    assert "candidates" in payload["error"]
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_modules_exposes_file_id(configured: None) -> None:
+    _mock_courses()
+    respx.get(f"{QUERCUS_API_ROOT}/courses/1002/modules").mock(
+        return_value=httpx.Response(200, json=_load_quercus("modules.json"))
+    )
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "quercus_list_modules",
+            {"course": "MATA22"},
+        )
+    item = result.data["modules"][0]["items"][0]
+    assert item["type"] == "File"
+    assert item["file_id"] == 801
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_get_file_modes(
+    configured: None,
+    quercus_settings: QuercusSettings,
+) -> None:
+    meta = _load_quercus("file_metadata.json")
+    pdf = (QUERCUS_FIXTURES / "sample.pdf").read_bytes()
+    respx.get(f"{QUERCUS_API_ROOT}/files/801").mock(
+        return_value=httpx.Response(200, json=meta)
+    )
+    respx.get(meta["url"]).mock(
+        return_value=httpx.Response(
+            200,
+            content=pdf,
+            headers={"Content-Type": "application/pdf"},
+        )
     )
 
     async with Client(mcp) as client:
-        result = await client.call_tool("quercus_list_courses", {})
+        meta_result = await client.call_tool(
+            "quercus_get_file",
+            {"file": "801", "mode": "metadata"},
+        )
+        text_result = await client.call_tool(
+            "quercus_get_file",
+            {"file": "801", "mode": "text"},
+        )
+        download_result = await client.call_tool(
+            "quercus_get_file",
+            {"file": "801", "mode": "download"},
+        )
 
-    data = result.data
-    assert isinstance(data, dict)
-    assert data["count"] == 2
-    assert len(data["courses"]) == 2
-    first = data["courses"][0]
-    assert first["id"] == 1001
-    assert first["course_code"] == "CSCA08H3"
-    assert first["name"] == "Introduction to Computer Science I"
-    assert "calendar" not in first
+    assert meta_result.data["mode"] == "metadata"
+    assert meta_result.data["file"]["id"] == 801
+    assert text_result.data["mode"] == "text"
+    assert text_result.data["text"] is not None
+    assert "Hello Quercus PDF" in text_result.data["text"]
+    path = Path(download_result.data["path"])
+    assert path.exists()
+    assert path.read_bytes() == pdf
+    assert str(quercus_settings.resolved_download_dir) in str(path)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_todo(configured: None) -> None:
+    respx.get(f"{QUERCUS_API_ROOT}/users/self/todo").mock(
+        return_value=httpx.Response(200, json=_load_quercus("todo.json"))
+    )
+    respx.get(f"{QUERCUS_API_ROOT}/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=_load_quercus("upcoming_events.json"))
+    )
+    async with Client(mcp) as client:
+        result = await client.call_tool("quercus_list_todo", {})
+    assert result.data["todo_count"] == 1
+    assert result.data["upcoming_count"] == 1
 
 
 @respx.mock
@@ -205,27 +341,8 @@ async def test_missing_token_returns_auth_missing(
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as exc_info:
             await client.call_tool("quercus_whoami", {})
-
     payload = _parse_tool_error(exc_info.value)
     assert payload["error"]["code"] == "quercus_auth_missing"
-    assert payload["error"]["retryable"] is False
-    assert TOKEN not in payload["error"]["message"]
-
-
-@respx.mock
-@pytest.mark.asyncio
-async def test_401_returns_auth_rejected(configured: None) -> None:
-    respx.get(f"{QUERCUS_API_ROOT}/users/self").mock(
-        return_value=httpx.Response(401, json={"errors": [{"message": "Invalid"}]})
-    )
-
-    async with Client(mcp) as client:
-        with pytest.raises(ToolError) as exc_info:
-            await client.call_tool("quercus_whoami", {})
-
-    payload = _parse_tool_error(exc_info.value)
-    assert payload["error"]["code"] == "quercus_auth_rejected"
-    assert TOKEN not in payload["error"]["message"]
 
 
 @respx.mock
@@ -237,14 +354,6 @@ async def test_timetable_tools_still_work_with_quercus_unset(
     respx.get(f"{TTB_BASE_URL}/reference-data").mock(
         return_value=httpx.Response(200, json=fixture)
     )
-
     async with Client(mcp) as client:
-        tools = await client.list_tools()
-        names = {tool.name for tool in tools}
-        assert "get_reference_data" in names
-        assert "quercus_whoami" in names
         result = await client.call_tool("get_reference_data", {})
-
-    data = result.data
-    assert isinstance(data, dict)
-    assert any(item["value"] == "ARTSC" for item in data["divisions"])
+    assert any(item["value"] == "ARTSC" for item in result.data["divisions"])

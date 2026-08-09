@@ -16,7 +16,7 @@ It uses the public Timetable Builder HTTP API with browser-like `Origin` / `Refe
 - Search courses by code or title with pagination
 - Fetch normalized section, meeting, instructor, and enrolment details
 - Deterministically check selected sections for time overlaps and transition gaps
-- Optionally call Quercus (Canvas) with a personal access token (`quercus_whoami`, `quercus_list_courses`)
+- Optionally call Quercus (Canvas) with a personal access token (todo, assignments, modules/files, PDF text extraction, and more)
 
 ## What it does not do
 
@@ -78,14 +78,10 @@ Add something like this to your Cursor MCP settings (adjust the absolute path):
 
 `QUERCUS_ACCESS_TOKEN` is optional. Without it, timetable tools still work; Quercus tools return `quercus_auth_missing`.
 
-After restarting MCP, Cursor should discover these tools:
+After restarting MCP, Cursor should discover timetable tools plus Quercus tools (Quercus ones require a token):
 
-1. `get_reference_data`
-2. `search_courses`
-3. `get_course_details`
-4. `check_conflicts`
-5. `quercus_whoami` (requires token)
-6. `quercus_list_courses` (requires token)
+- Timetable: `get_reference_data`, `search_courses`, `get_course_details`, `check_conflicts`
+- Quercus: `quercus_whoami`, `quercus_list_courses`, `quercus_list_todo`, `quercus_list_assignments`, `quercus_list_announcements`, `quercus_list_modules`, `quercus_list_files`, `quercus_get_file`
 
 ## Tools
 
@@ -180,6 +176,7 @@ Example input:
 - “Show enrolment and meeting details for CSC148H1 in session 20269.”
 - “Check whether these selected lecture and tutorial sections overlap.”
 - “Create a schedule from these courses, avoid Fridays, and use the conflict tool to verify the final choice.”
+- “What’s due on Quercus, then open the past quiz PDF for MATA22 and help with question 4.”
 
 ## Optional Quercus tools
 
@@ -187,11 +184,20 @@ Quercus support is **optional** and **unofficial**. This project is not affiliat
 
 1. In Quercus, create a personal access token: **Account → Settings → New Access Token** (wording may vary; see [Canvas personal access tokens](https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-as-an-account-admin/ta-p/615312) / your campus Quercus help).
 2. Set `QUERCUS_ACCESS_TOKEN` in the MCP server environment (for example the Cursor `mcp.json` `env` block above).
-3. Phase 1 tools:
-   - `quercus_whoami` — verify the token and return the current user
-   - `quercus_list_courses` — list courses with Canvas `id`, `name`, and `course_code`
+3. Tools:
+   - `quercus_whoami` — verify the token / identity
+   - `quercus_list_courses` — Canvas `id` + `course_code` + `name`
+   - `quercus_list_todo` — todo items and upcoming events
+   - `quercus_list_assignments` — course-scoped (full list; no date window)
+   - `quercus_list_announcements` — course-scoped; uses term start (else last 365 days) through today (Canvas alone defaults to ~14 days)
+   - `quercus_list_modules` / `quercus_list_files` — materials map and Files area
+   - `quercus_get_file` — `mode=metadata|text|download` (PDF/DOCX/text extraction; no OCR)
 
-A personal access token is equivalent to account access. Do not commit it, share it, or paste it into chat logs.
+Course-scoped tools accept a Canvas id, code fragment (`MATA22`), or name fragment. Prefer ids from `quercus_list_courses` when ambiguous.
+
+Past quiz PDF flow: `quercus_list_modules` or `quercus_list_files` → `quercus_get_file` with `mode=text`.
+
+Downloads are written under `QUERCUS_DOWNLOAD_DIR` (default `~/.cache/uoft-timetable-mcp/quercus-files`). A personal access token is equivalent to account access — do not commit or share it.
 
 ## Data source and freshness
 
@@ -216,6 +222,11 @@ A personal access token is equivalent to account access. Do not commit it, share
 | `QUERCUS_READ_TIMEOUT_SECONDS` | `20` | Quercus read timeout |
 | `QUERCUS_MAX_ATTEMPTS` | `3` | Quercus retry attempts |
 | `QUERCUS_MAX_PAGE_SIZE` | `100` | Canvas `per_page` cap |
+| `QUERCUS_MAX_CONCURRENCY` | `5` | Max concurrent module-item fetches |
+| `QUERCUS_DOWNLOAD_DIR` | `~/.cache/uoft-timetable-mcp/quercus-files` | Local download directory |
+| `QUERCUS_COURSE_CACHE_TTL_SECONDS` | `120` | Course-list resolver cache TTL |
+| `QUERCUS_MAX_DOWNLOAD_BYTES` | `26214400` | Max file download size (25 MiB) |
+| `QUERCUS_MAX_TEXT_CHARS` | `200000` | Max extracted text characters |
 
 ## Development
 

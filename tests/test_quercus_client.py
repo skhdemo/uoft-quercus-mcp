@@ -16,6 +16,7 @@ from uoft_timetable_mcp.quercus.client import QuercusClient, parse_link_header
 from uoft_timetable_mcp.quercus.errors import (
     QuercusAuthMissingError,
     QuercusAuthRejectedError,
+    QuercusFileTooLargeError,
     QuercusForbiddenError,
     QuercusRateLimitError,
     QuercusTimeoutError,
@@ -238,6 +239,131 @@ async def test_list_courses_multi_page(client: QuercusClient) -> None:
     assert route.call_count == 2
     assert len(courses) == 3
     assert courses[2]["course_code"] == "MATA30H3"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_assignments(client: QuercusClient) -> None:
+    respx.get(f"{API_ROOT}/courses/1001/assignments").mock(
+        return_value=httpx.Response(200, json=_load("assignments.json"))
+    )
+    items = await client.list_assignments(1001)
+    assert len(items) == 2
+    assert items[0]["name"] == "Quiz 2 PDF review"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_announcements_context_codes(client: QuercusClient) -> None:
+    route = respx.get(f"{API_ROOT}/announcements").mock(
+        return_value=httpx.Response(200, json=_load("announcements.json"))
+    )
+    items = await client.list_announcements(
+        1001,
+        start_date="2026-01-01",
+        end_date="2026-07-27",
+    )
+    assert route.called
+    url = str(route.calls.last.request.url)
+    assert "context_codes%5B%5D=course_1001" in url or "context_codes[]=course_1001" in url
+    assert "start_date=2026-01-01" in url
+    assert "end_date=2026-07-27" in url
+    assert items[0]["title"] == "Welcome to MATA22"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_modules_includes_items(client: QuercusClient) -> None:
+    respx.get(f"{API_ROOT}/courses/1001/modules").mock(
+        return_value=httpx.Response(200, json=_load("modules.json"))
+    )
+    modules = await client.list_modules(1001, include_items=True)
+    assert modules[0]["items"][0]["content_id"] == 801
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_download_file_success(client: QuercusClient) -> None:
+    meta = _load("file_metadata.json")
+    pdf = (FIXTURES / "sample.pdf").read_bytes()
+    respx.get(f"{API_ROOT}/files/801").mock(return_value=httpx.Response(200, json=meta))
+    respx.get(meta["url"]).mock(
+        return_value=httpx.Response(
+            200,
+            content=pdf,
+            headers={"Content-Type": "application/pdf"},
+        )
+    )
+    content, content_type, filename = await client.download_file(801)
+    assert content == pdf
+    assert content_type == "application/pdf"
+    assert filename == "quiz2.pdf"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_download_file_too_large(settings: QuercusSettings) -> None:
+    settings = QuercusSettings(
+        base_url=settings.base_url,
+        api_prefix=settings.api_prefix,
+        max_attempts=1,
+        max_download_bytes=10,
+        version="0.1.0",
+    )
+    meta = dict(_load("file_metadata.json"))
+    meta["size"] = 999
+    respx.get(f"{API_ROOT}/files/801").mock(return_value=httpx.Response(200, json=meta))
+    async with QuercusClient(settings, auth=PersonalTokenAuth(TOKEN)) as client:
+        with pytest.raises(QuercusFileTooLargeError):
+            await client.download_file(801)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_download_aborts_when_stream_exceeds_limit(
+    settings: QuercusSettings,
+) -> None:
+    settings = QuercusSettings(
+        base_url=settings.base_url,
+        api_prefix=settings.api_prefix,
+        max_attempts=1,
+        max_download_bytes=16,
+        version="0.1.0",
+    )
+    meta = dict(_load("file_metadata.json"))
+    meta["size"] = 4  # understated; stream body is larger
+    download_url = meta["url"]
+    respx.get(f"{API_ROOT}/files/801").mock(return_value=httpx.Response(200, json=meta))
+    respx.get(download_url).mock(
+        return_value=httpx.Response(
+            200,
+            content=b"x" * 64,
+            headers={"Content-Type": "application/pdf"},
+        )
+    )
+    async with QuercusClient(settings, auth=PersonalTokenAuth(TOKEN)) as client:
+        with pytest.raises(QuercusFileTooLargeError):
+            await client.download_file(801)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_download_omits_bearer_for_offsite_url(
+    settings: QuercusSettings,
+) -> None:
+    meta = dict(_load("file_metadata.json"))
+    meta["url"] = "https://cdn.example.com/files/801?verifier=secret"
+    respx.get(f"{API_ROOT}/files/801").mock(return_value=httpx.Response(200, json=meta))
+    route = respx.get(meta["url"]).mock(
+        return_value=httpx.Response(
+            200,
+            content=b"ok",
+            headers={"Content-Type": "application/pdf"},
+        )
+    )
+    async with QuercusClient(settings, auth=PersonalTokenAuth(TOKEN)) as client:
+        await client.download_file(801)
+    assert "Authorization" not in route.calls.last.request.headers
 
 
 @pytest.mark.asyncio

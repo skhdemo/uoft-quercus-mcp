@@ -42,7 +42,13 @@ async def test_stdio_lists_tools() -> None:
         "check_conflicts",
         "get_course_details",
         "get_reference_data",
+        "quercus_get_file",
+        "quercus_list_announcements",
+        "quercus_list_assignments",
         "quercus_list_courses",
+        "quercus_list_files",
+        "quercus_list_modules",
+        "quercus_list_todo",
         "quercus_whoami",
         "search_courses",
     ]

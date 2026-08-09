@@ -31,6 +31,12 @@ V1_TOOLS = {
     "check_conflicts",
     "quercus_whoami",
     "quercus_list_courses",
+    "quercus_list_todo",
+    "quercus_list_assignments",
+    "quercus_list_announcements",
+    "quercus_list_modules",
+    "quercus_list_files",
+    "quercus_get_file",
 }
 
 

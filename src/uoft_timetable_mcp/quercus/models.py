@@ -1,9 +1,9 @@
-"""Pydantic models for Quercus Phase 1 tool inputs and outputs."""
+"""Pydantic models for Quercus tool inputs and outputs."""
 
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -63,3 +63,60 @@ class ListCoursesResult(BaseModel):
 
     courses: list[QuercusCourse]
     count: int
+
+
+class ListTodoInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    include_todo: bool = True
+    include_upcoming: bool = True
+
+
+class CourseScopedInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    course: str = Field(min_length=1, max_length=200)
+    include_concluded: bool = False
+
+    @field_validator("course")
+    @classmethod
+    def _normalize_course(cls, value: str) -> str:
+        return _reject_control_chars(value.strip())
+
+
+class ListModulesInput(CourseScopedInput):
+    include_items: bool = True
+
+
+class ListFilesInput(CourseScopedInput):
+    search: str | None = None
+
+    @field_validator("search")
+    @classmethod
+    def _normalize_search(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = _reject_control_chars(value.strip())
+        return cleaned or None
+
+
+class GetFileInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file: str = Field(min_length=1, max_length=400)
+    course: str | None = None
+    mode: Literal["metadata", "text", "download"] = "text"
+    include_concluded: bool = False
+
+    @field_validator("file")
+    @classmethod
+    def _normalize_file(cls, value: str) -> str:
+        return _reject_control_chars(value.strip())
+
+    @field_validator("course")
+    @classmethod
+    def _normalize_course(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = _reject_control_chars(value.strip())
+        return cleaned or None

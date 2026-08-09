@@ -11,19 +11,29 @@ class DomainError(Exception):
     code: str = "upstream_error"
     retryable: bool = False
 
-    def __init__(self, message: str, *, retryable: bool | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        retryable: bool | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         if retryable is not None:
             self.retryable = retryable
+        self.details = details
 
 
 def to_mcp_error(exc: DomainError) -> dict[str, Any]:
     """Map a domain exception to the stable MCP error payload shape."""
-    return {
-        "error": {
-            "code": exc.code,
-            "message": exc.message,
-            "retryable": bool(exc.retryable),
-        }
+    error: dict[str, Any] = {
+        "code": exc.code,
+        "message": exc.message,
+        "retryable": bool(exc.retryable),
     }
+    if exc.details:
+        for key, value in exc.details.items():
+            if key not in error:
+                error[key] = value
+    return {"error": error}

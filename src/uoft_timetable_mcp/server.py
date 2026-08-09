@@ -20,18 +20,9 @@ from uoft_timetable_mcp.common.errors import DomainError, to_mcp_error
 from uoft_timetable_mcp.common.serialize import model_to_public_dict
 from uoft_timetable_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
 from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.errors import QuercusError, QuercusValidationError
-from uoft_timetable_mcp.quercus.models import (
-    ListCoursesInput,
-    ListCoursesResult,
-    QuercusCourse,
-    QuercusWhoamiResult,
-)
-from uoft_timetable_mcp.quercus.normalize import (
-    normalize_course as normalize_quercus_course,
-)
-from uoft_timetable_mcp.quercus.normalize import normalize_whoami
+from uoft_timetable_mcp.quercus.resolve import CourseListCache
 from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_timetable_mcp.quercus.tools import register_quercus_tools
 from uoft_timetable_mcp.timetable.client import TimetableClient
 from uoft_timetable_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
 from uoft_timetable_mcp.timetable.course_codes import (
@@ -168,6 +159,7 @@ class RuntimeState:
     quercus_settings: QuercusSettings
     quercus_auth: AuthProvider
     quercus_client: QuercusClient
+    quercus_course_cache: CourseListCache
     owns_client: bool = True
     owns_quercus_client: bool = True
 
@@ -185,6 +177,7 @@ def configure_runtime(
     quercus_settings: QuercusSettings | None = None,
     quercus_auth: AuthProvider | None = None,
     owns_quercus_client: bool | None = None,
+    quercus_course_cache: CourseListCache | None = None,
 ) -> RuntimeState:
     """Configure process-wide runtime dependencies (tests may call this)."""
     global _state
@@ -213,6 +206,10 @@ def configure_runtime(
         resolved_owns_quercus = (
             owns_quercus_client if owns_quercus_client is not None else True
         )
+    resolved_course_cache = quercus_course_cache or CourseListCache(
+        ttl_seconds=resolved_quercus_settings.course_cache_ttl_seconds,
+        clock=resolved_clock,
+    )
     _state = RuntimeState(
         client=resolved_client,
         settings=resolved_settings,
@@ -222,6 +219,7 @@ def configure_runtime(
         quercus_settings=resolved_quercus_settings,
         quercus_auth=resolved_quercus_auth,
         quercus_client=resolved_quercus_client,
+        quercus_course_cache=resolved_course_cache,
         owns_quercus_client=resolved_owns_quercus,
     )
     return _state
@@ -270,7 +268,9 @@ mcp = FastMCP(
         "and deterministically check schedule conflicts. "
         f"{_COURSE_CODE_GUIDANCE} "
         "Optional Quercus (Canvas) tools require a personal access token in "
-        "QUERCUS_ACCESS_TOKEN; timetable tools do not. "
+        "QUERCUS_ACCESS_TOKEN; timetable tools do not. Quercus tools cover "
+        "todo/upcoming, assignments, announcements, modules, course files, and "
+        "file text/download (e.g. past quiz PDFs via quercus_get_file mode=text). "
         "Data may change; this project is not affiliated with the University "
         "of Toronto."
     ),
@@ -699,63 +699,4 @@ def _find_section_matches(courses: list[Course], section_name: str) -> list[Sect
     return matches
 
 
-@mcp.tool(
-    description=(
-        "Verify the configured Quercus personal access token and return the "
-        "current user identity (Canvas id, name, and related fields). "
-        "Requires QUERCUS_ACCESS_TOKEN in the MCP server environment. "
-        "Unofficial Quercus/Canvas integration; not affiliated with the "
-        "University of Toronto."
-    )
-)
-async def quercus_whoami() -> dict[str, Any]:
-    state = get_state()
-    try:
-        raw = await state.quercus_client.get_self()
-    except QuercusError as exc:
-        raise_tool_error(exc)
-    result = QuercusWhoamiResult.model_validate(normalize_whoami(raw))
-    return model_to_public_dict(result, exclude_none=True)
-
-
-@mcp.tool(
-    description=(
-        "List Quercus courses for the authenticated user. Returns Canvas course "
-        "`id` together with `course_code` and `name` so later tools can resolve "
-        "human course codes to Canvas ids. Default enrollment_state is "
-        "`active`. Set include_concluded=true to omit enrollment_state filtering "
-        "and include concluded courses as well. "
-        "Requires QUERCUS_ACCESS_TOKEN in the MCP server environment. "
-        "Unofficial Quercus/Canvas integration; not affiliated with the "
-        "University of Toronto."
-    )
-)
-async def quercus_list_courses(
-    enrollment_state: str = "active",
-    include_concluded: bool = False,
-) -> dict[str, Any]:
-    try:
-        params = ListCoursesInput(
-            enrollment_state=enrollment_state,
-            include_concluded=include_concluded,
-        )
-    except ValidationError as exc:
-        message = "; ".join(error.get("msg", "Invalid input") for error in exc.errors())
-        raise_tool_error(QuercusValidationError(message))
-
-    state = get_state()
-    # include_concluded=true omits enrollment_state (active + concluded).
-    resolved_state = None if params.include_concluded else params.enrollment_state
-    try:
-        raw_courses = await state.quercus_client.list_courses(
-            enrollment_state=resolved_state
-        )
-    except QuercusError as exc:
-        raise_tool_error(exc)
-
-    courses = [
-        QuercusCourse.model_validate(normalize_quercus_course(raw))
-        for raw in raw_courses
-    ]
-    result = ListCoursesResult(courses=courses, count=len(courses))
-    return model_to_public_dict(result, exclude_none=True)
+register_quercus_tools(mcp)

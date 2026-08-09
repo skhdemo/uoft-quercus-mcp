@@ -47,3 +47,14 @@ def test_normalize_course_drops_calendar_and_keeps_term() -> None:
     }
     assert "calendar" not in result
     assert "enrollments" not in result
+
+
+def test_normalize_file_omits_download_url() -> None:
+    from uoft_timetable_mcp.quercus.normalize import normalize_file
+
+    raw = _load("file_metadata.json")
+    result = normalize_file(raw)
+    assert result["id"] == 801
+    assert result["display_name"] == "quiz2.pdf"
+    assert "url" not in result
+    assert "verifier" not in str(result)
