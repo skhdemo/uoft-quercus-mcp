@@ -7,13 +7,13 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
-from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.errors import (
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.errors import (
     QuercusAmbiguousError,
     QuercusNotFoundError,
 )
-from uoft_timetable_mcp.quercus.normalize import normalize_course, normalize_file
-from uoft_timetable_mcp.timetable.normalize import utc_now
+from uoft_quercus_mcp.quercus.normalize import normalize_course, normalize_file
+from uoft_quercus_mcp.timetable.normalize import utc_now
 
 Clock = Callable[[], datetime]
 

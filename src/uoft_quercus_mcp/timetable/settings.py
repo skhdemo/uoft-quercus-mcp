@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from uoft_timetable_mcp import __version__
-from uoft_timetable_mcp.common.env import env_float, env_int
+from uoft_quercus_mcp import __version__
+from uoft_quercus_mcp.common.env import env_float, env_int
 
 DEFAULT_BASE_URL = "https://api.easi.utoronto.ca/ttb"
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 5.0

@@ -12,22 +12,22 @@ import httpx
 import pytest
 import respx
 
-from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
-from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.errors import (
+from uoft_quercus_mcp.quercus.auth import PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.errors import (
     QuercusAmbiguousError,
     QuercusNotFoundError,
     QuercusUpstreamError,
 )
-from uoft_timetable_mcp.quercus.normalize import normalize_course, normalize_file
-from uoft_timetable_mcp.quercus.resolve import (
+from uoft_quercus_mcp.quercus.normalize import normalize_course, normalize_file
+from uoft_quercus_mcp.quercus.resolve import (
     CourseListCache,
     resolve_announcement_window,
     resolve_course,
     resolve_file_in_course,
 )
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
-from uoft_timetable_mcp.timetable.normalize import utc_now
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.timetable.normalize import utc_now
 
 FIXTURES = Path(__file__).parent / "fixtures" / "quercus"
 API_ROOT = "https://q.utoronto.ca/api/v1"

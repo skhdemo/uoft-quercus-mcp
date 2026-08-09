@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from uoft_timetable_mcp.quercus.normalize import normalize_course, normalize_whoami
+from uoft_quercus_mcp.quercus.normalize import normalize_course, normalize_whoami
 
 FIXTURES = Path(__file__).parent / "fixtures" / "quercus"
 
@@ -50,7 +50,7 @@ def test_normalize_course_drops_calendar_and_keeps_term() -> None:
 
 
 def test_normalize_file_omits_download_url() -> None:
-    from uoft_timetable_mcp.quercus.normalize import normalize_file
+    from uoft_quercus_mcp.quercus.normalize import normalize_file
 
     raw = _load("file_metadata.json")
     result = normalize_file(raw)

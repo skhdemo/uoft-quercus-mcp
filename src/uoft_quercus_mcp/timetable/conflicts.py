@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from uoft_timetable_mcp.timetable.models import (
+from uoft_quercus_mcp.timetable.models import (
     ConflictRecord,
     Meeting,
     Section,
     TransitionViolation,
     UncheckedMeeting,
 )
-from uoft_timetable_mcp.timetable.normalize import (
+from uoft_quercus_mcp.timetable.normalize import (
     format_hhmm,
     meeting_is_conflict_checkable,
 )

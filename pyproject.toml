@@ -1,7 +1,7 @@
 [project]
-name = "uoft-timetable-mcp"
+name = "uoft-quercus-mcp"
 version = "0.1.0"
-description = "Unofficial University of Toronto Timetable Builder MCP server"
+description = "Unofficial University of Toronto Quercus (Canvas) MCP server, with Timetable Builder tools"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.4.5",
@@ -12,7 +12,8 @@ dependencies = [
 ]
 
 [project.scripts]
-uoft-timetable-mcp = "uoft_timetable_mcp.__main__:main"
+uoft-quercus-mcp = "uoft_quercus_mcp.__main__:main"
+uoft-timetable-mcp = "uoft_quercus_mcp.__main__:main"  # deprecated alias
 
 [build-system]
 requires = ["uv_build>=0.11.8,<0.12.0"]

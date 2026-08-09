@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
-from uoft_timetable_mcp.quercus.errors import QuercusAuthMissingError
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.auth import PersonalTokenAuth
+from uoft_quercus_mcp.quercus.errors import QuercusAuthMissingError
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
 
 
 @pytest.fixture

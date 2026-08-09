@@ -14,13 +14,13 @@ import respx
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
-from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.resolve import CourseListCache
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
-from uoft_timetable_mcp.server import configure_runtime, mcp, reset_runtime
-from uoft_timetable_mcp.timetable.client import TimetableClient
-from uoft_timetable_mcp.timetable.settings import Settings
+from uoft_quercus_mcp.quercus.auth import PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.resolve import CourseListCache
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.server import configure_runtime, mcp, reset_runtime
+from uoft_quercus_mcp.timetable.client import TimetableClient
+from uoft_quercus_mcp.timetable.settings import Settings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 QUERCUS_FIXTURES = FIXTURES / "quercus"

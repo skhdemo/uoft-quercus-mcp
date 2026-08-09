@@ -11,9 +11,9 @@ import httpx
 import pytest
 import respx
 
-from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
-from uoft_timetable_mcp.quercus.client import QuercusClient, parse_link_header
-from uoft_timetable_mcp.quercus.errors import (
+from uoft_quercus_mcp.quercus.auth import PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient, parse_link_header
+from uoft_quercus_mcp.quercus.errors import (
     QuercusAuthMissingError,
     QuercusAuthRejectedError,
     QuercusFileTooLargeError,
@@ -21,7 +21,7 @@ from uoft_timetable_mcp.quercus.errors import (
     QuercusRateLimitError,
     QuercusTimeoutError,
 )
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
 
 FIXTURES = Path(__file__).parent / "fixtures" / "quercus"
 API_ROOT = "https://q.utoronto.ca/api/v1"
@@ -71,7 +71,7 @@ async def client(
 
 def _assert_quercus_headers(request: httpx.Request) -> None:
     assert request.headers["Accept"] == "application/json"
-    assert request.headers["User-Agent"] == "uoft-timetable-mcp/0.1.0"
+    assert request.headers["User-Agent"] == "uoft-quercus-mcp/0.1.0"
     assert request.headers["Authorization"] == f"Bearer {TOKEN}"
     assert "Origin" not in request.headers
     assert "Referer" not in request.headers
@@ -265,7 +265,9 @@ async def test_list_announcements_context_codes(client: QuercusClient) -> None:
     )
     assert route.called
     url = str(route.calls.last.request.url)
-    assert "context_codes%5B%5D=course_1001" in url or "context_codes[]=course_1001" in url
+    assert (
+        "context_codes%5B%5D=course_1001" in url or "context_codes[]=course_1001" in url
+    )
     assert "start_date=2026-01-01" in url
     assert "end_date=2026-07-27" in url
     assert items[0]["title"] == "Welcome to MATA22"

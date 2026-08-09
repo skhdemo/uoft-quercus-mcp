@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from uoft_timetable_mcp.common.errors import DomainError, to_mcp_error
+from uoft_quercus_mcp.common.errors import DomainError, to_mcp_error
 
 __all__ = [
     "CourseNotFoundError",
@@ -17,7 +17,7 @@ __all__ = [
 
 
 class TimetableError(DomainError):
-    """Base error for timetable MCP domain failures."""
+    """Base error for timetable domain failures."""
 
     code: str = "upstream_error"
     retryable: bool = False

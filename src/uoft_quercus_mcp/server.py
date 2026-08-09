@@ -1,4 +1,4 @@
-"""FastMCP server instance and V1 data tools."""
+"""FastMCP server instance for Quercus and Timetable Builder tools."""
 
 from __future__ import annotations
 
@@ -15,28 +15,28 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import ValidationError
 
-from uoft_timetable_mcp import __version__
-from uoft_timetable_mcp.common.errors import DomainError, to_mcp_error
-from uoft_timetable_mcp.common.serialize import model_to_public_dict
-from uoft_timetable_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
-from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.resolve import CourseListCache
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
-from uoft_timetable_mcp.quercus.tools import register_quercus_tools
-from uoft_timetable_mcp.timetable.client import TimetableClient
-from uoft_timetable_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
-from uoft_timetable_mcp.timetable.course_codes import (
+from uoft_quercus_mcp import __version__
+from uoft_quercus_mcp.common.errors import DomainError, to_mcp_error
+from uoft_quercus_mcp.common.serialize import model_to_public_dict
+from uoft_quercus_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.resolve import CourseListCache
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.tools import register_quercus_tools
+from uoft_quercus_mcp.timetable.client import TimetableClient
+from uoft_quercus_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
+from uoft_quercus_mcp.timetable.course_codes import (
     expand_short_course_code,
     is_short_course_code,
     short_code_not_found_message,
 )
-from uoft_timetable_mcp.timetable.errors import (
+from uoft_quercus_mcp.timetable.errors import (
     CourseNotFoundError,
     TimetableError,
     TimetableUpstreamError,
     TimetableValidationError,
 )
-from uoft_timetable_mcp.timetable.models import (
+from uoft_quercus_mcp.timetable.models import (
     CheckConflictsInput,
     CheckConflictsResult,
     Course,
@@ -49,7 +49,7 @@ from uoft_timetable_mcp.timetable.models import (
     SectionSelection,
     UnresolvedSelection,
 )
-from uoft_timetable_mcp.timetable.normalize import (
+from uoft_quercus_mcp.timetable.normalize import (
     classify_search_query,
     normalize_course,
     normalize_reference_data,
@@ -57,7 +57,7 @@ from uoft_timetable_mcp.timetable.normalize import (
     session_matches,
     utc_now,
 )
-from uoft_timetable_mcp.timetable.settings import Settings
+from uoft_quercus_mcp.timetable.settings import Settings
 
 _CHECK_CONFLICTS_DESCRIPTION = (
     "Deterministically check whether selected course sections overlap in time. "
@@ -260,19 +260,20 @@ async def _lifespan(_server: FastMCP) -> AsyncIterator[dict[str, Any]]:
 
 
 mcp = FastMCP(
-    name="uoft-timetable-mcp",
+    name="uoft-quercus-mcp",
     version=__version__,
     instructions=(
-        "Unofficial University of Toronto Timetable Builder data tools. "
-        "Discover sessions and filters, search courses, fetch section details, "
-        "and deterministically check schedule conflicts. "
+        "Unofficial University of Toronto Quercus (Canvas) MCP tools for students. "
+        "With QUERCUS_ACCESS_TOKEN, list courses, todo/upcoming, assignments, "
+        "announcements, modules, course files, and file text/download "
+        "(e.g. past quiz PDFs via quercus_get_file mode=text). "
+        "Also includes public Timetable Builder helpers: discover sessions and "
+        "filters, search courses, fetch section details, and deterministically "
+        "check schedule conflicts. "
         f"{_COURSE_CODE_GUIDANCE} "
-        "Optional Quercus (Canvas) tools require a personal access token in "
-        "QUERCUS_ACCESS_TOKEN; timetable tools do not. Quercus tools cover "
-        "todo/upcoming, assignments, announcements, modules, course files, and "
-        "file text/download (e.g. past quiz PDFs via quercus_get_file mode=text). "
-        "Data may change; this project is not affiliated with the University "
-        "of Toronto."
+        "Timetable tools do not require a Quercus token. Quercus and Timetable "
+        "Builder are separate unofficial data sources. This project is not "
+        "affiliated with the University of Toronto."
     ),
     lifespan=_lifespan,
     mask_error_details=True,

@@ -6,8 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from uoft_timetable_mcp import __version__
-from uoft_timetable_mcp.common.env import env_float, env_int
+from uoft_quercus_mcp import __version__
+from uoft_quercus_mcp.common.env import env_float, env_int
 
 DEFAULT_BASE_URL = "https://q.utoronto.ca"
 DEFAULT_API_PREFIX = "/api/v1"
@@ -17,7 +17,7 @@ DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_MAX_PAGE_SIZE = 100
 DEFAULT_MAX_CONCURRENCY = 5
 DEFAULT_ACCESS_TOKEN_ENV = "QUERCUS_ACCESS_TOKEN"
-DEFAULT_DOWNLOAD_DIR = "~/.cache/uoft-timetable-mcp/quercus-files"
+DEFAULT_DOWNLOAD_DIR = "~/.cache/uoft-quercus-mcp/files"
 DEFAULT_COURSE_CACHE_TTL_SECONDS = 120
 DEFAULT_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 DEFAULT_MAX_TEXT_CHARS = 200_000

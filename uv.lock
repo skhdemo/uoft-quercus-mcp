@@ -1498,7 +1498,7 @@ wheels = [
 ]
 
 [[package]]
-name = "uoft-timetable-mcp"
+name = "uoft-quercus-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

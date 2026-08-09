@@ -19,7 +19,7 @@ async def test_stdio_lists_tools() -> None:
     """Packaging and entry point work: initialize, list tools, exit cleanly."""
     transport = StdioTransport(
         command=sys.executable,
-        args=["-m", "uoft_timetable_mcp"],
+        args=["-m", "uoft_quercus_mcp"],
         cwd=str(_PROJECT_ROOT),
         env={
             "VIRTUAL_ENV": str(_PROJECT_ROOT / ".venv"),

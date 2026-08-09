@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from typing import Protocol
 
-from uoft_timetable_mcp.quercus.errors import QuercusAuthMissingError
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.errors import QuercusAuthMissingError
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
 
 _AUTH_MISSING_MESSAGE = (
     "Quercus personal access token is not configured. Set the environment "

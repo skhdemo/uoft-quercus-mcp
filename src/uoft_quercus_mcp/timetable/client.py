@@ -10,21 +10,21 @@ from urllib.parse import quote
 
 import httpx
 
-from uoft_timetable_mcp.common.http_retry import (
+from uoft_quercus_mcp.common.http_retry import (
     RETRYABLE_STATUS_CODES,
     Sleeper,
     backoff_seconds,
     default_sleeper,
     retry_delay_seconds,
 )
-from uoft_timetable_mcp.timetable.errors import (
+from uoft_quercus_mcp.timetable.errors import (
     TimetableNetworkError,
     TimetableRateLimitError,
     TimetableTimeoutError,
     TimetableUpstreamError,
     TimetableValidationError,
 )
-from uoft_timetable_mcp.timetable.settings import Settings
+from uoft_quercus_mcp.timetable.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class TimetableClient:
             "Accept": "application/json",
             "Origin": "https://ttb.utoronto.ca",
             "Referer": "https://ttb.utoronto.ca/",
-            "User-Agent": f"uoft-timetable-mcp/{self.settings.version}",
+            "User-Agent": f"uoft-quercus-mcp/{self.settings.version}",
         }
 
     async def aclose(self) -> None:

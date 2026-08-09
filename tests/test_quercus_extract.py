@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from uoft_timetable_mcp.quercus.extract import extract_text, safe_filename
+from uoft_quercus_mcp.quercus.extract import extract_text, safe_filename
 
 FIXTURES = Path(__file__).parent / "fixtures" / "quercus"
 

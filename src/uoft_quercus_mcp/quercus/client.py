@@ -12,15 +12,15 @@ from urllib.parse import urlparse, urlunparse
 
 import httpx
 
-from uoft_timetable_mcp.common.http_retry import (
+from uoft_quercus_mcp.common.http_retry import (
     RETRYABLE_STATUS_CODES,
     Sleeper,
     backoff_seconds,
     default_sleeper,
     retry_delay_seconds,
 )
-from uoft_timetable_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
-from uoft_timetable_mcp.quercus.errors import (
+from uoft_quercus_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
+from uoft_quercus_mcp.quercus.errors import (
     QuercusAuthRejectedError,
     QuercusFileTooLargeError,
     QuercusForbiddenError,
@@ -30,7 +30,7 @@ from uoft_timetable_mcp.quercus.errors import (
     QuercusTimeoutError,
     QuercusUpstreamError,
 )
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class QuercusClient:
     def _default_headers(self) -> dict[str, str]:
         return {
             "Accept": "application/json",
-            "User-Agent": f"uoft-timetable-mcp/{self.settings.version}",
+            "User-Agent": f"uoft-quercus-mcp/{self.settings.version}",
         }
 
     async def aclose(self) -> None:

@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
-from uoft_timetable_mcp.common.serialize import model_to_public_dict
-from uoft_timetable_mcp.quercus.errors import (
+from uoft_quercus_mcp.common.serialize import model_to_public_dict
+from uoft_quercus_mcp.quercus.errors import (
     QuercusError,
     QuercusValidationError,
 )
-from uoft_timetable_mcp.quercus.extract import extract_text, safe_filename
-from uoft_timetable_mcp.quercus.models import (
+from uoft_quercus_mcp.quercus.extract import extract_text, safe_filename
+from uoft_quercus_mcp.quercus.models import (
     CourseScopedInput,
     GetFileInput,
     ListCoursesInput,
@@ -23,7 +23,7 @@ from uoft_timetable_mcp.quercus.models import (
     QuercusCourse,
     QuercusWhoamiResult,
 )
-from uoft_timetable_mcp.quercus.normalize import (
+from uoft_quercus_mcp.quercus.normalize import (
     course_ref,
     normalize_announcement,
     normalize_assignment,
@@ -34,7 +34,7 @@ from uoft_timetable_mcp.quercus.normalize import (
     normalize_upcoming_event,
     normalize_whoami,
 )
-from uoft_timetable_mcp.quercus.resolve import (
+from uoft_quercus_mcp.quercus.resolve import (
     resolve_announcement_window,
     resolve_course_ref,
     resolve_file_in_course,
@@ -53,7 +53,7 @@ _COURSE_HINT = "Prefer Canvas ids or codes from quercus_list_courses when ambigu
 def register_quercus_tools(mcp: FastMCP) -> None:
     """Register all Quercus tools on the shared FastMCP instance."""
     # Local imports avoid circular import at module load (server ↔ tools).
-    from uoft_timetable_mcp.server import get_state, raise_tool_error
+    from uoft_quercus_mcp.server import get_state, raise_tool_error
 
     @mcp.tool(
         description=(

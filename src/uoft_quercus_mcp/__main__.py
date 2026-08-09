@@ -1,6 +1,6 @@
-"""Stdio entry point for the UofT Timetable MCP server."""
+"""Stdio entry point for the UofT Quercus MCP server."""
 
-from uoft_timetable_mcp.server import mcp
+from uoft_quercus_mcp.server import mcp
 
 
 def main() -> None:

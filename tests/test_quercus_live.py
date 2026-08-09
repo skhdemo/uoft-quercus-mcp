@@ -11,10 +11,10 @@ import os
 
 import pytest
 
-from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
-from uoft_timetable_mcp.quercus.client import QuercusClient
-from uoft_timetable_mcp.quercus.normalize import normalize_course, normalize_whoami
-from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.auth import PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.normalize import normalize_course, normalize_whoami
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
 
 
 @pytest.mark.live_quercus
