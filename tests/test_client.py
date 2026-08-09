@@ -12,13 +12,13 @@ import httpx
 import pytest
 import respx
 
-from uoft_timetable_mcp.client import TimetableClient
-from uoft_timetable_mcp.errors import (
+from uoft_timetable_mcp.timetable.client import TimetableClient
+from uoft_timetable_mcp.timetable.errors import (
     TimetableRateLimitError,
     TimetableTimeoutError,
     TimetableUpstreamError,
 )
-from uoft_timetable_mcp.settings import Settings
+from uoft_timetable_mcp.timetable.settings import Settings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = "https://api.easi.utoronto.ca/ttb"

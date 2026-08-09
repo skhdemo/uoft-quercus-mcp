@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -348,8 +347,3 @@ class CheckConflictsResult(BaseModel):
     cancelled_sections: list[str] = Field(default_factory=list)
     checked_section_count: int = 0
     fetched_at: datetime
-
-
-def model_to_public_dict(model: BaseModel) -> dict[str, Any]:
-    """Serialize a model for MCP responses with ISO-8601 UTC timestamps."""
-    return model.model_dump(mode="json")

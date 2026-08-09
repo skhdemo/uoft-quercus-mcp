@@ -2,35 +2,31 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
-from email.utils import parsedate_to_datetime
+from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
-from uoft_timetable_mcp.errors import (
+from uoft_timetable_mcp.common.http_retry import (
+    RETRYABLE_STATUS_CODES,
+    Sleeper,
+    backoff_seconds,
+    default_sleeper,
+    retry_delay_seconds,
+)
+from uoft_timetable_mcp.timetable.errors import (
     TimetableNetworkError,
     TimetableRateLimitError,
     TimetableTimeoutError,
     TimetableUpstreamError,
     TimetableValidationError,
 )
-from uoft_timetable_mcp.settings import Settings
+from uoft_timetable_mcp.timetable.settings import Settings
 
 logger = logging.getLogger(__name__)
-
-Sleeper = Callable[[float], Awaitable[None]]
-
-_RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
-_DEFAULT_BACKOFF_SECONDS = (0.25, 0.75, 1.5)
-
-
-async def _default_sleeper(seconds: float) -> None:
-    await asyncio.sleep(seconds)
 
 
 class TimetableClient:
@@ -48,7 +44,7 @@ class TimetableClient:
         sleeper: Sleeper | None = None,
     ) -> None:
         self.settings = settings or Settings.from_env()
-        self._sleeper: Sleeper = sleeper or _default_sleeper
+        self._sleeper: Sleeper = sleeper or default_sleeper
         self._owns_client = http_client is None
         timeout = httpx.Timeout(
             connect=self.settings.connect_timeout_seconds,
@@ -217,7 +213,7 @@ class TimetableClient:
                 )
                 if attempt >= self.settings.max_attempts:
                     raise last_error from exc
-                await self._sleeper(self._backoff_seconds(attempt))
+                await self._sleeper(backoff_seconds(attempt))
                 continue
             except httpx.TransportError as exc:
                 last_error = TimetableNetworkError(
@@ -231,13 +227,13 @@ class TimetableClient:
                 )
                 if attempt >= self.settings.max_attempts:
                     raise last_error from exc
-                await self._sleeper(self._backoff_seconds(attempt))
+                await self._sleeper(backoff_seconds(attempt))
                 continue
 
             duration_ms = int((time.perf_counter() - started) * 1000)
             status_code = response.status_code
 
-            if status_code in _RETRYABLE_STATUS_CODES:
+            if status_code in RETRYABLE_STATUS_CODES:
                 logger.info(
                     "timetable_request method=%s path=%s status=%s duration_ms=%s "
                     "attempt=%s retryable=true",
@@ -256,7 +252,7 @@ class TimetableClient:
                         "Timetable Builder is temporarily unavailable.",
                         retryable=True,
                     )
-                await self._sleeper(self._retry_delay_seconds(response, attempt))
+                await self._sleeper(retry_delay_seconds(response, attempt))
                 continue
 
             if status_code >= 400:
@@ -359,29 +355,3 @@ class TimetableClient:
         if messages:
             return messages[0]
         return "Timetable Builder reported an application error."
-
-    def _retry_delay_seconds(self, response: httpx.Response, attempt: int) -> float:
-        retry_after = response.headers.get("Retry-After")
-        if retry_after:
-            parsed = self._parse_retry_after(retry_after)
-            if parsed is not None:
-                return parsed
-        return self._backoff_seconds(attempt)
-
-    def _backoff_seconds(self, attempt: int) -> float:
-        index = min(max(attempt - 1, 0), len(_DEFAULT_BACKOFF_SECONDS) - 1)
-        return _DEFAULT_BACKOFF_SECONDS[index]
-
-    @staticmethod
-    def _parse_retry_after(value: str) -> float | None:
-        stripped = value.strip()
-        if not stripped:
-            return None
-        if stripped.isdigit():
-            return float(stripped)
-        try:
-            when = parsedate_to_datetime(stripped)
-        except (TypeError, ValueError, IndexError):
-            return None
-        delay = when.timestamp() - time.time()
-        return max(delay, 0.0)

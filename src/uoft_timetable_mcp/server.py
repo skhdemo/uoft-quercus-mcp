@@ -16,21 +16,36 @@ from fastmcp.exceptions import ToolError
 from pydantic import ValidationError
 
 from uoft_timetable_mcp import __version__
-from uoft_timetable_mcp.client import TimetableClient
-from uoft_timetable_mcp.conflicts import ResolvedSection, analyze_conflicts
-from uoft_timetable_mcp.course_codes import (
+from uoft_timetable_mcp.common.errors import DomainError, to_mcp_error
+from uoft_timetable_mcp.common.serialize import model_to_public_dict
+from uoft_timetable_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
+from uoft_timetable_mcp.quercus.client import QuercusClient
+from uoft_timetable_mcp.quercus.errors import QuercusError, QuercusValidationError
+from uoft_timetable_mcp.quercus.models import (
+    ListCoursesInput,
+    ListCoursesResult,
+    QuercusCourse,
+    QuercusWhoamiResult,
+)
+from uoft_timetable_mcp.quercus.normalize import (
+    normalize_course as normalize_quercus_course,
+)
+from uoft_timetable_mcp.quercus.normalize import normalize_whoami
+from uoft_timetable_mcp.quercus.settings import QuercusSettings
+from uoft_timetable_mcp.timetable.client import TimetableClient
+from uoft_timetable_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
+from uoft_timetable_mcp.timetable.course_codes import (
     expand_short_course_code,
     is_short_course_code,
     short_code_not_found_message,
 )
-from uoft_timetable_mcp.errors import (
+from uoft_timetable_mcp.timetable.errors import (
     CourseNotFoundError,
     TimetableError,
     TimetableUpstreamError,
     TimetableValidationError,
-    to_mcp_error,
 )
-from uoft_timetable_mcp.models import (
+from uoft_timetable_mcp.timetable.models import (
     CheckConflictsInput,
     CheckConflictsResult,
     Course,
@@ -42,9 +57,8 @@ from uoft_timetable_mcp.models import (
     Section,
     SectionSelection,
     UnresolvedSelection,
-    model_to_public_dict,
 )
-from uoft_timetable_mcp.normalize import (
+from uoft_timetable_mcp.timetable.normalize import (
     classify_search_query,
     normalize_course,
     normalize_reference_data,
@@ -52,7 +66,7 @@ from uoft_timetable_mcp.normalize import (
     session_matches,
     utc_now,
 )
-from uoft_timetable_mcp.settings import Settings
+from uoft_timetable_mcp.timetable.settings import Settings
 
 _CHECK_CONFLICTS_DESCRIPTION = (
     "Deterministically check whether selected course sections overlap in time. "
@@ -151,7 +165,11 @@ class RuntimeState:
     settings: Settings
     clock: Clock
     reference_cache: ReferenceDataCache
+    quercus_settings: QuercusSettings
+    quercus_auth: AuthProvider
+    quercus_client: QuercusClient
     owns_client: bool = True
+    owns_quercus_client: bool = True
 
 
 _state: RuntimeState | None = None
@@ -163,6 +181,10 @@ def configure_runtime(
     settings: Settings | None = None,
     clock: Clock | None = None,
     owns_client: bool | None = None,
+    quercus_client: QuercusClient | None = None,
+    quercus_settings: QuercusSettings | None = None,
+    quercus_auth: AuthProvider | None = None,
+    owns_quercus_client: bool | None = None,
 ) -> RuntimeState:
     """Configure process-wide runtime dependencies (tests may call this)."""
     global _state
@@ -174,12 +196,33 @@ def configure_runtime(
         ttl_seconds=resolved_settings.reference_cache_ttl_seconds,
         clock=resolved_clock,
     )
+    resolved_quercus_settings = quercus_settings or QuercusSettings.from_env()
+    resolved_quercus_auth: AuthProvider = quercus_auth or PersonalTokenAuth.from_env(
+        resolved_quercus_settings
+    )
+    if quercus_client is not None:
+        resolved_quercus_client = quercus_client
+        resolved_owns_quercus = (
+            owns_quercus_client if owns_quercus_client is not None else False
+        )
+    else:
+        resolved_quercus_client = QuercusClient(
+            resolved_quercus_settings,
+            auth=resolved_quercus_auth,
+        )
+        resolved_owns_quercus = (
+            owns_quercus_client if owns_quercus_client is not None else True
+        )
     _state = RuntimeState(
         client=resolved_client,
         settings=resolved_settings,
         clock=resolved_clock,
         reference_cache=cache,
         owns_client=resolved_owns,
+        quercus_settings=resolved_quercus_settings,
+        quercus_auth=resolved_quercus_auth,
+        quercus_client=resolved_quercus_client,
+        owns_quercus_client=resolved_owns_quercus,
     )
     return _state
 
@@ -196,7 +239,7 @@ def get_state() -> RuntimeState:
     return _state
 
 
-def raise_tool_error(exc: TimetableError) -> NoReturn:
+def raise_tool_error(exc: DomainError) -> NoReturn:
     """Raise a FastMCP ToolError carrying the stable MCP error payload."""
     raise ToolError(json.dumps(to_mcp_error(exc))) from exc
 
@@ -213,6 +256,8 @@ async def _lifespan(_server: FastMCP) -> AsyncIterator[dict[str, Any]]:
         if created_here and _state is not None:
             if _state.owns_client:
                 await _state.client.aclose()
+            if _state.owns_quercus_client:
+                await _state.quercus_client.aclose()
             _state = None
 
 
@@ -224,6 +269,8 @@ mcp = FastMCP(
         "Discover sessions and filters, search courses, fetch section details, "
         "and deterministically check schedule conflicts. "
         f"{_COURSE_CODE_GUIDANCE} "
+        "Optional Quercus (Canvas) tools require a personal access token in "
+        "QUERCUS_ACCESS_TOKEN; timetable tools do not. "
         "Data may change; this project is not affiliated with the University "
         "of Toronto."
     ),
@@ -650,3 +697,65 @@ def _find_section_matches(courses: list[Course], section_name: str) -> list[Sect
             if section.name.upper() == wanted:
                 matches.append(section)
     return matches
+
+
+@mcp.tool(
+    description=(
+        "Verify the configured Quercus personal access token and return the "
+        "current user identity (Canvas id, name, and related fields). "
+        "Requires QUERCUS_ACCESS_TOKEN in the MCP server environment. "
+        "Unofficial Quercus/Canvas integration; not affiliated with the "
+        "University of Toronto."
+    )
+)
+async def quercus_whoami() -> dict[str, Any]:
+    state = get_state()
+    try:
+        raw = await state.quercus_client.get_self()
+    except QuercusError as exc:
+        raise_tool_error(exc)
+    result = QuercusWhoamiResult.model_validate(normalize_whoami(raw))
+    return model_to_public_dict(result, exclude_none=True)
+
+
+@mcp.tool(
+    description=(
+        "List Quercus courses for the authenticated user. Returns Canvas course "
+        "`id` together with `course_code` and `name` so later tools can resolve "
+        "human course codes to Canvas ids. Default enrollment_state is "
+        "`active`. Set include_concluded=true to omit enrollment_state filtering "
+        "and include concluded courses as well. "
+        "Requires QUERCUS_ACCESS_TOKEN in the MCP server environment. "
+        "Unofficial Quercus/Canvas integration; not affiliated with the "
+        "University of Toronto."
+    )
+)
+async def quercus_list_courses(
+    enrollment_state: str = "active",
+    include_concluded: bool = False,
+) -> dict[str, Any]:
+    try:
+        params = ListCoursesInput(
+            enrollment_state=enrollment_state,
+            include_concluded=include_concluded,
+        )
+    except ValidationError as exc:
+        message = "; ".join(error.get("msg", "Invalid input") for error in exc.errors())
+        raise_tool_error(QuercusValidationError(message))
+
+    state = get_state()
+    # include_concluded=true omits enrollment_state (active + concluded).
+    resolved_state = None if params.include_concluded else params.enrollment_state
+    try:
+        raw_courses = await state.quercus_client.list_courses(
+            enrollment_state=resolved_state
+        )
+    except QuercusError as exc:
+        raise_tool_error(exc)
+
+    courses = [
+        QuercusCourse.model_validate(normalize_quercus_course(raw))
+        for raw in raw_courses
+    ]
+    result = ListCoursesResult(courses=courses, count=len(courses))
+    return model_to_public_dict(result, exclude_none=True)

@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from uoft_timetable_mcp.course_codes import (
+from uoft_timetable_mcp.timetable.course_codes import (
     expand_short_course_code,
     is_course_code_query,
     is_short_course_code,
     suffixes_for_divisions,
 )
-from uoft_timetable_mcp.normalize import (
+from uoft_timetable_mcp.timetable.normalize import (
     classify_search_query,
     compute_available_space,
     day_name,

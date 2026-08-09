@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from uoft_timetable_mcp.client import TimetableClient
-from uoft_timetable_mcp.normalize import normalize_reference_options
-from uoft_timetable_mcp.settings import Settings
+from uoft_timetable_mcp.timetable.client import TimetableClient
+from uoft_timetable_mcp.timetable.normalize import normalize_reference_options
+from uoft_timetable_mcp.timetable.settings import Settings
 
 
 @pytest.mark.live

@@ -15,9 +15,12 @@ import respx
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from uoft_timetable_mcp.client import TimetableClient
+from uoft_timetable_mcp.quercus.auth import PersonalTokenAuth
+from uoft_timetable_mcp.quercus.client import QuercusClient
+from uoft_timetable_mcp.quercus.settings import QuercusSettings
 from uoft_timetable_mcp.server import configure_runtime, mcp, reset_runtime
-from uoft_timetable_mcp.settings import Settings
+from uoft_timetable_mcp.timetable.client import TimetableClient
+from uoft_timetable_mcp.timetable.settings import Settings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = "https://api.easi.utoronto.ca/ttb"
@@ -26,6 +29,8 @@ V1_TOOLS = {
     "search_courses",
     "get_course_details",
     "check_conflicts",
+    "quercus_whoami",
+    "quercus_list_courses",
 }
 
 
@@ -82,16 +87,32 @@ async def configured(
     settings: Settings,
     clock: MutableClock,
 ) -> AsyncIterator[None]:
+    quercus_settings = QuercusSettings(
+        base_url="https://q.utoronto.ca",
+        connect_timeout_seconds=1.0,
+        read_timeout_seconds=1.0,
+        max_attempts=1,
+        version="0.1.0",
+    )
+    quercus_client = QuercusClient(
+        quercus_settings,
+        auth=PersonalTokenAuth(None),
+    )
     configure_runtime(
         client=timetable_client,
         settings=settings,
         clock=clock,
         owns_client=False,
+        quercus_client=quercus_client,
+        quercus_settings=quercus_settings,
+        quercus_auth=PersonalTokenAuth(None),
+        owns_quercus_client=False,
     )
     try:
         yield None
     finally:
         reset_runtime()
+        await quercus_client.aclose()
 
 
 def _error_message_has_no_traceback(message: str) -> bool:

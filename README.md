@@ -16,10 +16,11 @@ It uses the public Timetable Builder HTTP API with browser-like `Origin` / `Refe
 - Search courses by code or title with pagination
 - Fetch normalized section, meeting, instructor, and enrolment details
 - Deterministically check selected sections for time overlaps and transition gaps
+- Optionally call Quercus (Canvas) with a personal access token (`quercus_whoami`, `quercus_list_courses`)
 
 ## What it does not do
 
-- ACORN / Quercus login or any U of T authentication
+- ACORN login, cookie/session scraping, or collecting UTORid/password
 - Course enrolment or waitlist changes
 - Degree / prerequisite / eligibility decisions
 - Exam schedules
@@ -29,7 +30,7 @@ It uses the public Timetable Builder HTTP API with browser-like `Origin` / `Refe
 
 ## Privacy
 
-No U of T credentials, cookies, or student account data are required or collected. The server only calls the public Timetable Builder API with the filters you (or the LLM) supply.
+Timetable tools call the public Timetable Builder API only — no U of T credentials required. Optional Quercus tools use a **personal access token you create** in Quercus and place in the MCP server environment; the token is never logged or returned in tool output. Do not commit or share it.
 
 ## Prerequisites
 
@@ -66,18 +67,25 @@ Add something like this to your Cursor MCP settings (adjust the absolute path):
         "/absolute/path/to/uoft-timetable-mcp",
         "run",
         "uoft-timetable-mcp"
-      ]
+      ],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
     }
   }
 }
 ```
 
-After restarting MCP, Cursor should discover exactly these four tools:
+`QUERCUS_ACCESS_TOKEN` is optional. Without it, timetable tools still work; Quercus tools return `quercus_auth_missing`.
+
+After restarting MCP, Cursor should discover these tools:
 
 1. `get_reference_data`
 2. `search_courses`
 3. `get_course_details`
 4. `check_conflicts`
+5. `quercus_whoami` (requires token)
+6. `quercus_list_courses` (requires token)
 
 ## Tools
 
@@ -173,6 +181,18 @@ Example input:
 - “Check whether these selected lecture and tutorial sections overlap.”
 - “Create a schedule from these courses, avoid Fridays, and use the conflict tool to verify the final choice.”
 
+## Optional Quercus tools
+
+Quercus support is **optional** and **unofficial**. This project is not affiliated with the University of Toronto.
+
+1. In Quercus, create a personal access token: **Account → Settings → New Access Token** (wording may vary; see [Canvas personal access tokens](https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-as-an-account-admin/ta-p/615312) / your campus Quercus help).
+2. Set `QUERCUS_ACCESS_TOKEN` in the MCP server environment (for example the Cursor `mcp.json` `env` block above).
+3. Phase 1 tools:
+   - `quercus_whoami` — verify the token and return the current user
+   - `quercus_list_courses` — list courses with Canvas `id`, `name`, and `course_code`
+
+A personal access token is equivalent to account access. Do not commit it, share it, or paste it into chat logs.
+
 ## Data source and freshness
 
 - Upstream API: `https://api.easi.utoronto.ca/ttb`
@@ -190,6 +210,12 @@ Example input:
 | `TIMETABLE_REFERENCE_CACHE_TTL_SECONDS` | `900` | Reference-data cache TTL |
 | `TIMETABLE_MAX_PAGE_SIZE` | `50` | Max search page size |
 | `TIMETABLE_MAX_CONCURRENCY` | `5` | Max concurrent course lookups |
+| `QUERCUS_ACCESS_TOKEN` | _(unset)_ | Quercus personal access token |
+| `QUERCUS_BASE_URL` | `https://q.utoronto.ca` | Quercus site root |
+| `QUERCUS_CONNECT_TIMEOUT_SECONDS` | `5` | Quercus connect timeout |
+| `QUERCUS_READ_TIMEOUT_SECONDS` | `20` | Quercus read timeout |
+| `QUERCUS_MAX_ATTEMPTS` | `3` | Quercus retry attempts |
+| `QUERCUS_MAX_PAGE_SIZE` | `100` | Canvas `per_page` cap |
 
 ## Development
 
@@ -201,10 +227,11 @@ uv run pyright
 uv run pytest
 ```
 
-Optional live API smoke test (excluded by default):
+Optional live API smoke tests (excluded by default):
 
 ```bash
 uv run pytest -m live
+uv run pytest -m live_quercus
 ```
 
 ## Troubleshooting
@@ -218,7 +245,7 @@ uv run pytest -m live
 ### Upstream format changes
 
 - Tool errors use stable codes such as `upstream_error` without stack traces
-- If normalization breaks after an API change, update fixtures under `tests/fixtures/` and adjust `normalize.py` deliberately
+- If normalization breaks after an API change, update fixtures under `tests/fixtures/` and adjust `timetable/normalize.py` deliberately
 
 ### No search results
 
