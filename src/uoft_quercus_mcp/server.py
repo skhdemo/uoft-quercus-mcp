@@ -60,13 +60,13 @@ from uoft_quercus_mcp.timetable.normalize import (
 from uoft_quercus_mcp.timetable.settings import Settings
 
 _CHECK_CONFLICTS_DESCRIPTION = (
-    "Deterministically check whether selected course sections overlap in time. "
-    "Resolves section meeting times from current timetable data — do not rely on "
-    "your own time arithmetic. Before telling a student that a proposed schedule "
-    "is verified, call this tool with every selected section. Only claim the "
-    "schedule is verified when `has_conflicts` is false, `transition_violations` "
-    "is empty, and `is_complete` is true. If `is_complete` is false, say the "
-    "schedule could not be fully verified. Prefer full parent course codes when "
+    "Deterministically check whether selected course sections overlap in time "
+    "using Timetable Builder (TTB) meeting times — do not rely on your own time "
+    "arithmetic. Before telling a student that a proposed schedule is verified, "
+    "call this tool with every selected section. Only claim the schedule is "
+    "verified when `has_conflicts` is false, `transition_violations` is empty, "
+    "and `is_complete` is true. If `is_complete` is false, say the schedule "
+    "could not be fully verified. Prefer full parent course codes when "
     "selecting sections (e.g. CSCA08H3, not CSCA08). "
     "Unofficial Timetable Builder data; values may change and this project is "
     "not affiliated with the University of Toronto."
@@ -77,9 +77,9 @@ _COURSE_CODE_GUIDANCE = (
     "Students often omit the campus suffix (CSCA08 vs CSCA08H3). Commonly, the "
     "final H/Y is course weight and the final digit is campus — usually 1 St. "
     "George, 3 UTSC, 5 UTM (so H1/Y1, H3/Y3, H5/Y5). Choose the matching "
-    "division from get_reference_data (SCAR for UTSC, ERIN for UTM, ARTSC for "
-    "Arts & Science St. George, etc.). If a short code fails, retry with the "
-    "full code and correct division rather than guessing randomly."
+    "division from ttb_get_reference_data (SCAR for UTSC, ERIN for UTM, ARTSC "
+    "for Arts & Science St. George, etc.). If a short code fails, retry with "
+    "the full code and correct division rather than guessing randomly."
 )
 
 logger = logging.getLogger(__name__)
@@ -267,11 +267,11 @@ mcp = FastMCP(
         "With QUERCUS_ACCESS_TOKEN, list courses, todo/upcoming, assignments, "
         "announcements, modules, course files, and file text/download "
         "(e.g. past quiz PDFs via quercus_get_file mode=text). "
-        "Also includes public Timetable Builder helpers: discover sessions and "
-        "filters, search courses, fetch section details, and deterministically "
-        "check schedule conflicts. "
+        "Also includes public Timetable Builder (TTB) helpers via the ttb_* "
+        "tools: ttb_get_reference_data, ttb_search_courses, "
+        "ttb_get_course_details, ttb_check_conflicts. "
         f"{_COURSE_CODE_GUIDANCE} "
-        "Timetable tools do not require a Quercus token. Quercus and Timetable "
+        "TTB tools do not require a Quercus token. Quercus and Timetable "
         "Builder are separate unofficial data sources. This project is not "
         "affiliated with the University of Toronto."
     ),
@@ -282,13 +282,13 @@ mcp = FastMCP(
 
 @mcp.tool(
     description=(
-        "Return currently valid Timetable Builder sessions, divisions, campuses, "
-        "delivery modes, and course levels. Call this before searching if you do "
-        "not already know valid filter values. Sessions are not hard-coded and "
-        f"change over time. {_DATA_DISCLAIMER}"
+        "Return currently valid Timetable Builder (TTB) sessions, divisions, "
+        "campuses, delivery modes, and course levels. Call this before searching "
+        "if you do not already know valid filter values. Sessions are not "
+        f"hard-coded and change over time. {_DATA_DISCLAIMER}"
     )
 )
-async def get_reference_data() -> dict[str, Any]:
+async def ttb_get_reference_data() -> dict[str, Any]:
     state = get_state()
 
     async def _fetch() -> ReferenceData:
@@ -304,18 +304,18 @@ async def get_reference_data() -> dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "Search courses by code or title with required session and division "
-        "filters. Returns concise summaries and pagination metadata; use "
-        "get_course_details for full section/meeting data. "
-        "Requires at least one session and one division from get_reference_data. "
-        "page is one-based; page_size must be between 1 and 50. "
-        f"{_COURSE_CODE_GUIDANCE} "
+        "Search Timetable Builder (TTB) courses by code or title with required "
+        "session and division filters. Returns concise summaries and pagination "
+        "metadata; use ttb_get_course_details for full section/meeting data. "
+        "Requires at least one session and one division from "
+        "ttb_get_reference_data. page is one-based; page_size must be between 1 "
+        f"and 50. {_COURSE_CODE_GUIDANCE} "
         "Short code-like queries are expanded using the selected division "
         "(never sent as a title search). Empty courses means no match — try the "
         f"full code and correct division. {_DATA_DISCLAIMER}"
     )
 )
-async def search_courses(
+async def ttb_search_courses(
     sessions: list[str],
     divisions: list[str],
     query: str = "",
@@ -410,15 +410,15 @@ async def search_courses(
 
 @mcp.tool(
     description=(
-        "Fetch normalized course and section details for a course code in a "
-        "required session. Optionally filter by section_code term half "
-        "(F, S, or Y) — not a LEC/TUT component name. Returns all matching "
-        "upstream records for that course/session. Raises course_not_found "
-        f"when nothing matches. {_COURSE_CODE_GUIDANCE} "
+        "Fetch normalized course and section details from Timetable Builder "
+        "(TTB) for a course code in a required session. Optionally filter by "
+        "section_code term half (F, S, or Y) — not a LEC/TUT component name. "
+        "Returns all matching upstream records for that course/session. Raises "
+        f"course_not_found when nothing matches. {_COURSE_CODE_GUIDANCE} "
         f"{_DATA_DISCLAIMER}"
     )
 )
-async def get_course_details(
+async def ttb_get_course_details(
     course_code: str,
     session: str,
     section_code: str | None = None,
@@ -550,7 +550,7 @@ async def _lookup_course_details(
 
 
 @mcp.tool(description=_CHECK_CONFLICTS_DESCRIPTION)
-async def check_conflicts(
+async def ttb_check_conflicts(
     session: str,
     selections: list[SectionSelection],
     minimum_transition_minutes: int = 0,

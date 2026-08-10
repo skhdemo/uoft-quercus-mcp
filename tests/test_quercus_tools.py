@@ -29,10 +29,10 @@ QUERCUS_API_ROOT = "https://q.utoronto.ca/api/v1"
 TOKEN = "test-token"
 
 EXPECTED_TOOLS = {
-    "get_reference_data",
-    "search_courses",
-    "get_course_details",
-    "check_conflicts",
+    "ttb_get_reference_data",
+    "ttb_search_courses",
+    "ttb_get_course_details",
+    "ttb_check_conflicts",
     "quercus_whoami",
     "quercus_list_courses",
     "quercus_list_todo",
@@ -355,5 +355,5 @@ async def test_timetable_tools_still_work_with_quercus_unset(
         return_value=httpx.Response(200, json=fixture)
     )
     async with Client(mcp) as client:
-        result = await client.call_tool("get_reference_data", {})
+        result = await client.call_tool("ttb_get_reference_data", {})
     assert any(item["value"] == "ARTSC" for item in result.data["divisions"])

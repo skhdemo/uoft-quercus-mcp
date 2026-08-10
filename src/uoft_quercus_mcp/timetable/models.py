@@ -28,7 +28,7 @@ class ReferenceOption(BaseModel):
 
 
 class ReferenceData(BaseModel):
-    """Normalized output of `get_reference_data`."""
+    """Normalized output of `ttb_get_reference_data`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -109,7 +109,7 @@ class Course(BaseModel):
 
 
 class CourseSearchItem(BaseModel):
-    """Concise course summary returned by `search_courses`."""
+    """Concise course summary returned by `ttb_search_courses`."""
 
     model_config = ConfigDict(extra="forbid")
 

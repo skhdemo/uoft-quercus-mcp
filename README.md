@@ -105,10 +105,10 @@ Add something like this to your Cursor MCP settings (adjust the absolute path):
 }
 ```
 
-After restarting MCP, Cursor should discover Quercus tools (token required) and Timetable tools:
+After restarting MCP, Cursor should discover Quercus tools (token required) and Timetable Builder (TTB) tools:
 
 - Quercus: `quercus_whoami`, `quercus_list_courses`, `quercus_list_todo`, `quercus_list_assignments`, `quercus_list_announcements`, `quercus_list_modules`, `quercus_list_files`, `quercus_get_file`
-- Timetable: `get_reference_data`, `search_courses`, `get_course_details`, `check_conflicts`
+- Timetable Builder (TTB): `ttb_get_reference_data`, `ttb_search_courses`, `ttb_get_course_details`, `ttb_check_conflicts`
 
 ## Quick start prompts
 
@@ -135,21 +135,21 @@ Course-scoped tools accept a Canvas id, code fragment (`MATA22`), or name fragme
 
 Past quiz PDF flow: `quercus_list_modules` or `quercus_list_files` → `quercus_get_file` with `mode=text`.
 
-### Timetable tools
+### Timetable Builder (TTB) tools
 
-#### `get_reference_data`
+#### `ttb_get_reference_data`
 
-Return currently valid filter values. Sessions are **not hard-coded**.
+Return currently valid Timetable Builder (TTB) filter values. Sessions are **not hard-coded**.
 
 ```json
 {}
 ```
 
-#### `search_courses`
+#### `ttb_search_courses`
 
-Search by course code or title. Requires at least one session and one division. Results are concise summaries with pagination (`page` is one-based; `page_size` max 50).
+Search Timetable Builder (TTB) courses by code or title. Requires at least one session and one division from `ttb_get_reference_data`. Results are concise summaries with pagination (`page` is one-based; `page_size` max 50); use `ttb_get_course_details` for full section/meeting data.
 
-Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Students often omit the campus suffix (`CSCA08` vs `CSCA08H3`). Commonly, the final `H`/`Y` is course weight and the final digit is campus — usually `1` St. George, `3` UTSC, `5` UTM. Pick the matching division from `get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM). Short code-like queries are expanded using that division and are never treated as title searches.
+Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Students often omit the campus suffix (`CSCA08` vs `CSCA08H3`). Commonly, the final `H`/`Y` is course weight and the final digit is campus — usually `1` St. George, `3` UTSC, `5` UTM. Pick the matching division from `ttb_get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM). Short code-like queries are expanded using that division and are never treated as title searches.
 
 ```json
 {
@@ -161,9 +161,9 @@ Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Stud
 }
 ```
 
-#### `get_course_details`
+#### `ttb_get_course_details`
 
-Fetch normalized course/section/meeting details for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name.
+Fetch normalized course/section/meeting details from Timetable Builder (TTB) for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name.
 
 ```json
 {
@@ -173,9 +173,9 @@ Fetch normalized course/section/meeting details for a course code in a required 
 }
 ```
 
-#### `check_conflicts`
+#### `ttb_check_conflicts`
 
-Resolve selected section meeting times from current timetable data and report overlaps / transition gaps.
+Resolve selected section meeting times from Timetable Builder (TTB) and report overlaps / transition gaps.
 
 **Verification rule for the LLM:** before telling a student a schedule is verified, call this tool with every selected section. Only claim verification when **all** of these are true:
 
@@ -265,7 +265,7 @@ uv run pytest -m live_quercus
 
 ### No timetable search results
 
-- Confirm session and division values via `get_reference_data` (do not guess old term codes)
+- Confirm session and division values via `ttb_get_reference_data` (do not guess old term codes)
 - Try a broader title query, or a full course code like `CSC108H1`
 - Empty results (`courses: []`, `total: 0`) are valid — not an error
 

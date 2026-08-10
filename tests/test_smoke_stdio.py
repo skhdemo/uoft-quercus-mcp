@@ -39,9 +39,6 @@ async def test_stdio_lists_tools() -> None:
 
     assert isinstance(tool_names, list)
     assert sorted(tool_names) == [
-        "check_conflicts",
-        "get_course_details",
-        "get_reference_data",
         "quercus_get_file",
         "quercus_list_announcements",
         "quercus_list_assignments",
@@ -50,5 +47,8 @@ async def test_stdio_lists_tools() -> None:
         "quercus_list_modules",
         "quercus_list_todo",
         "quercus_whoami",
-        "search_courses",
+        "ttb_check_conflicts",
+        "ttb_get_course_details",
+        "ttb_get_reference_data",
+        "ttb_search_courses",
     ]

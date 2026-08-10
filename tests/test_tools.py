@@ -25,10 +25,10 @@ from uoft_quercus_mcp.timetable.settings import Settings
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = "https://api.easi.utoronto.ca/ttb"
 V1_TOOLS = {
-    "get_reference_data",
-    "search_courses",
-    "get_course_details",
-    "check_conflicts",
+    "ttb_get_reference_data",
+    "ttb_search_courses",
+    "ttb_get_course_details",
+    "ttb_check_conflicts",
     "quercus_whoami",
     "quercus_list_courses",
     "quercus_list_todo",
@@ -134,10 +134,14 @@ async def test_v1_tools_are_discoverable(configured: None) -> None:
     names = {tool.name for tool in tools}
     assert names == V1_TOOLS
     by_name = {tool.name: tool for tool in tools}
-    reference_description = by_name["get_reference_data"].description or ""
-    search_description = by_name["search_courses"].description or ""
-    details_description = by_name["get_course_details"].description or ""
-    conflicts_description = by_name["check_conflicts"].description or ""
+    reference_description = by_name["ttb_get_reference_data"].description or ""
+    search_description = by_name["ttb_search_courses"].description or ""
+    details_description = by_name["ttb_get_course_details"].description or ""
+    conflicts_description = by_name["ttb_check_conflicts"].description or ""
+    assert "Timetable Builder (TTB)" in reference_description
+    assert "Timetable Builder (TTB)" in search_description
+    assert "Timetable Builder (TTB)" in details_description
+    assert "Timetable Builder (TTB)" in conflicts_description
     assert "sessions" in reference_description
     assert "page_size" in search_description
     assert "section_code" in details_description
@@ -151,6 +155,8 @@ async def test_v1_tools_are_discoverable(configured: None) -> None:
     assert "H3" in search_description
     assert "campus suffix" in details_description.lower()
     assert "full" in conflicts_description.lower()
+    assert "ttb_get_reference_data" in search_description
+    assert "ttb_get_course_details" in search_description
 
 
 @respx.mock
@@ -162,7 +168,7 @@ async def test_get_reference_data_strips_headers(configured: None) -> None:
     )
 
     async with Client(mcp) as client:
-        result = await client.call_tool("get_reference_data", {})
+        result = await client.call_tool("ttb_get_reference_data", {})
 
     data = result.data
     assert isinstance(data, dict)
@@ -185,13 +191,13 @@ async def test_reference_cache_hit_and_expiry(
     )
 
     async with Client(mcp) as client:
-        first = await client.call_tool("get_reference_data", {})
-        second = await client.call_tool("get_reference_data", {})
+        first = await client.call_tool("ttb_get_reference_data", {})
+        second = await client.call_tool("ttb_get_reference_data", {})
         assert route.call_count == 1
         assert first.data == second.data
 
         clock.advance(901)
-        third = await client.call_tool("get_reference_data", {})
+        third = await client.call_tool("ttb_get_reference_data", {})
         assert route.call_count == 2
         assert third.data["fetched_at"].startswith("2026-07-27T01:15:01")
 
@@ -211,9 +217,9 @@ async def test_reference_cache_single_flight(configured: None) -> None:
     route = respx.get(f"{BASE_URL}/reference-data").mock(side_effect=_slow_response)
 
     async with Client(mcp) as client:
-        task_a = asyncio.create_task(client.call_tool("get_reference_data", {}))
+        task_a = asyncio.create_task(client.call_tool("ttb_get_reference_data", {}))
         await started.wait()
-        task_b = asyncio.create_task(client.call_tool("get_reference_data", {}))
+        task_b = asyncio.create_task(client.call_tool("ttb_get_reference_data", {}))
         await asyncio.sleep(0.05)
         release.set()
         results = await asyncio.gather(task_a, task_b)
@@ -236,12 +242,12 @@ async def test_failed_reference_fetch_is_not_cached(configured: None) -> None:
 
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as exc_info:
-            await client.call_tool("get_reference_data", {})
+            await client.call_tool("ttb_get_reference_data", {})
         payload = _parse_tool_error(exc_info.value)
         assert payload["error"]["code"] == "upstream_error"
         assert _error_message_has_no_traceback(payload["error"]["message"])
 
-        result = await client.call_tool("get_reference_data", {})
+        result = await client.call_tool("ttb_get_reference_data", {})
         assert route.call_count == 2
         assert result.data["sessions"]
 
@@ -252,17 +258,17 @@ async def test_search_courses_rejects_missing_filters(configured: None) -> None:
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as no_sessions:
             await client.call_tool(
-                "search_courses",
+                "ttb_search_courses",
                 {"sessions": [], "divisions": ["ARTSC"], "query": "CSC108H1"},
             )
         with pytest.raises(ToolError) as no_divisions:
             await client.call_tool(
-                "search_courses",
+                "ttb_search_courses",
                 {"sessions": ["20269"], "divisions": [], "query": "CSC108H1"},
             )
         with pytest.raises(ToolError) as bad_page_size:
             await client.call_tool(
-                "search_courses",
+                "ttb_search_courses",
                 {
                     "sessions": ["20269"],
                     "divisions": ["ARTSC"],
@@ -288,7 +294,7 @@ async def test_search_courses_routes_code_and_title_queries(configured: None) ->
 
     async with Client(mcp) as client:
         await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "csc108h1",
                 "sessions": ["20269"],
@@ -300,7 +306,7 @@ async def test_search_courses_routes_code_and_title_queries(configured: None) ->
         assert code_body["courseCodeAndTitleProps"]["courseTitle"] == ""
 
         await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "computer programming",
                 "sessions": ["20269"],
@@ -361,7 +367,7 @@ async def test_search_courses_full_utsc_code_not_title(configured: None) -> None
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "CSCA08H3",
                 "sessions": ["20269"],
@@ -394,7 +400,7 @@ async def test_search_courses_short_code_expands_for_scar(configured: None) -> N
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "CSCA08",
                 "sessions": ["20269"],
@@ -433,7 +439,7 @@ async def test_search_courses_short_code_skips_candidate_404(configured: None) -
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "CSCA08",
                 "sessions": ["20269"],
@@ -479,7 +485,7 @@ async def test_search_courses_concise_pagination_and_empty(
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "CSC108H1",
                 "sessions": ["20269"],
@@ -496,7 +502,7 @@ async def test_search_courses_concise_pagination_and_empty(
         assert "sections" not in data["courses"][0]
 
         empty = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "ZZZ999H1",
                 "sessions": ["20269"],
@@ -520,7 +526,7 @@ async def test_get_course_details_filters_session_and_case(
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "get_course_details",
+            "ttb_get_course_details",
             {"course_code": "csc108h1", "session": "20269"},
         )
 
@@ -547,11 +553,11 @@ async def test_get_course_details_combined_session_and_multiple_records(
 
     async with Client(mcp) as client:
         winter = await client.call_tool(
-            "get_course_details",
+            "ttb_get_course_details",
             {"course_code": "CSC108H1", "session": "20271"},
         )
         year = await client.call_tool(
-            "get_course_details",
+            "ttb_get_course_details",
             {"course_code": "CSC108H1", "session": "20269", "section_code": "y"},
         )
 
@@ -573,7 +579,7 @@ async def test_get_course_details_not_found_error_shape(configured: None) -> Non
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as exc_info:
             await client.call_tool(
-                "get_course_details",
+                "ttb_get_course_details",
                 {"course_code": "CSC108H1", "session": "19991"},
             )
 
@@ -667,7 +673,7 @@ async def test_get_course_details_short_code_expands(configured: None) -> None:
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "get_course_details",
+            "ttb_get_course_details",
             {"course_code": "CSCA08", "session": "20269"},
         )
 
@@ -699,7 +705,7 @@ async def test_get_course_details_short_code_not_found_mentions_suffixes(
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as exc_info:
             await client.call_tool(
-                "get_course_details",
+                "ttb_get_course_details",
                 {"course_code": "CSCA08", "session": "20269"},
             )
 
@@ -721,7 +727,7 @@ async def test_mapped_timeout_error_shape(configured: None) -> None:
 
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as exc_info:
-            await client.call_tool("get_reference_data", {})
+            await client.call_tool("ttb_get_reference_data", {})
 
     payload = _parse_tool_error(exc_info.value)
     assert payload["error"]["code"] == "upstream_timeout"
@@ -795,7 +801,7 @@ async def test_check_conflicts_detects_known_overlap(configured: None) -> None:
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "check_conflicts",
+            "ttb_check_conflicts",
             {
                 "session": "20269",
                 "selections": [
@@ -825,7 +831,7 @@ async def test_check_conflicts_dedupes_course_fetches(configured: None) -> None:
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "check_conflicts",
+            "ttb_check_conflicts",
             {
                 "session": "20269",
                 "selections": [
@@ -855,7 +861,7 @@ async def test_check_conflicts_partial_failure_and_missing_section(
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "check_conflicts",
+            "ttb_check_conflicts",
             {
                 "session": "20269",
                 "selections": [
@@ -974,7 +980,7 @@ async def test_check_conflicts_ambiguous_cancelled_and_non_weekly(
 
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "check_conflicts",
+            "ttb_check_conflicts",
             {
                 "session": "20269",
                 "selections": [
@@ -1014,9 +1020,9 @@ async def test_end_to_end_fixture_flow(configured: None) -> None:
     )
 
     async with Client(mcp) as client:
-        reference = await client.call_tool("get_reference_data", {})
+        reference = await client.call_tool("ttb_get_reference_data", {})
         search = await client.call_tool(
-            "search_courses",
+            "ttb_search_courses",
             {
                 "query": "CSC108H1",
                 "sessions": ["20269"],
@@ -1024,11 +1030,11 @@ async def test_end_to_end_fixture_flow(configured: None) -> None:
             },
         )
         details = await client.call_tool(
-            "get_course_details",
+            "ttb_get_course_details",
             {"course_code": "CSC108H1", "session": "20269"},
         )
         conflicts = await client.call_tool(
-            "check_conflicts",
+            "ttb_check_conflicts",
             {
                 "session": "20269",
                 "selections": [
