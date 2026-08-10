@@ -137,70 +137,16 @@ Past quiz PDF flow: `quercus_list_modules` or `quercus_list_files` → `quercus_
 
 ### Timetable Builder (TTB) tools
 
-#### `ttb_get_reference_data`
+| Tool | Purpose |
+|------|---------|
+| `ttb_get_reference_data` | Valid sessions, divisions, campuses, delivery modes, course levels (not hard-coded) |
+| `ttb_search_courses` | Search by code or title; requires session(s) + division(s); concise paginated summaries |
+| `ttb_get_course_details` | Full section/meeting details; optional `section_code` is term half (`F`/`S`/`Y`), not LEC/TUT |
+| `ttb_check_conflicts` | Deterministic overlap / transition checks on selected sections |
 
-Return currently valid Timetable Builder (TTB) filter values. Sessions are **not hard-coded**.
+Prefer full UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Short codes are expanded using the selected division from `ttb_get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM).
 
-```json
-{}
-```
-
-#### `ttb_search_courses`
-
-Search Timetable Builder (TTB) courses by code or title. Requires at least one session and one division from `ttb_get_reference_data`. Results are concise summaries with pagination (`page` is one-based; `page_size` max 50); use `ttb_get_course_details` for full section/meeting data.
-
-Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Students often omit the campus suffix (`CSCA08` vs `CSCA08H3`). Commonly, the final `H`/`Y` is course weight and the final digit is campus — usually `1` St. George, `3` UTSC, `5` UTM. Pick the matching division from `ttb_get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM). Short code-like queries are expanded using that division and are never treated as title searches.
-
-```json
-{
-  "query": "CSC108H1",
-  "sessions": ["20269"],
-  "divisions": ["ARTSC"],
-  "page": 1,
-  "page_size": 10
-}
-```
-
-#### `ttb_get_course_details`
-
-Fetch normalized course/section/meeting details from Timetable Builder (TTB) for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name.
-
-```json
-{
-  "course_code": "CSC148H1",
-  "session": "20269",
-  "section_code": null
-}
-```
-
-#### `ttb_check_conflicts`
-
-Resolve selected section meeting times from Timetable Builder (TTB) and report overlaps / transition gaps.
-
-**Verification rule for the LLM:** before telling a student a schedule is verified, call this tool with every selected section. Only claim verification when **all** of these are true:
-
-- `has_conflicts` is `false`
-- `transition_violations` is empty
-- `is_complete` is `true`
-
-If `is_complete` is `false`, say the schedule could not be fully verified.
-
-```json
-{
-  "session": "20269",
-  "selections": [
-    {
-      "course_code": "CSC108H1",
-      "section_names": ["LEC0201", "TUT0101"]
-    },
-    {
-      "course_code": "MAT137Y1",
-      "section_names": ["LEC0501", "TUT0401"]
-    }
-  ],
-  "minimum_transition_minutes": 0
-}
-```
+Before claiming a schedule is verified, call `ttb_check_conflicts` with every selected section and require `has_conflicts` false, empty `transition_violations`, and `is_complete` true.
 
 ## Data sources and freshness
 
