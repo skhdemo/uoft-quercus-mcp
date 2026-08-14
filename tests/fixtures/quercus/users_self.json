@@ -1,0 +1,12 @@
+{
+  "id": 12345,
+  "name": "Jane Student",
+  "sortable_name": "Student, Jane",
+  "short_name": "Jane",
+  "login_id": "jane.student@mail.utoronto.ca",
+  "locale": "en",
+  "permissions": {
+    "can_update_name": false,
+    "can_update_avatar": false
+  }
+}

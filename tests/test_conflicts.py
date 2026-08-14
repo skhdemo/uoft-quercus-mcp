@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from uoft_timetable_mcp.conflicts import ResolvedSection, analyze_conflicts
-from uoft_timetable_mcp.models import Meeting, Section
+from uoft_quercus_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
+from uoft_quercus_mcp.timetable.models import Meeting, Section
 
 
 def _meeting(

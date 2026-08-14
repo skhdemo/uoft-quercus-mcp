@@ -6,8 +6,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from uoft_timetable_mcp.course_codes import is_course_code_query
-from uoft_timetable_mcp.models import (
+from uoft_quercus_mcp.timetable.course_codes import is_course_code_query
+from uoft_quercus_mcp.timetable.models import (
     Course,
     CourseSearchItem,
     DeliveryMode,

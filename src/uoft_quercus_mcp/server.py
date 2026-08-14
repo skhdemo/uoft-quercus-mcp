@@ -1,4 +1,4 @@
-"""FastMCP server instance and V1 data tools."""
+"""FastMCP server instance for Quercus and Timetable Builder tools."""
 
 from __future__ import annotations
 
@@ -15,22 +15,28 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import ValidationError
 
-from uoft_timetable_mcp import __version__
-from uoft_timetable_mcp.client import TimetableClient
-from uoft_timetable_mcp.conflicts import ResolvedSection, analyze_conflicts
-from uoft_timetable_mcp.course_codes import (
+from uoft_quercus_mcp import __version__
+from uoft_quercus_mcp.common.errors import DomainError, to_mcp_error
+from uoft_quercus_mcp.common.serialize import model_to_public_dict
+from uoft_quercus_mcp.quercus.auth import AuthProvider, PersonalTokenAuth
+from uoft_quercus_mcp.quercus.client import QuercusClient
+from uoft_quercus_mcp.quercus.resolve import CourseListCache
+from uoft_quercus_mcp.quercus.settings import QuercusSettings
+from uoft_quercus_mcp.quercus.tools import register_quercus_tools
+from uoft_quercus_mcp.timetable.client import TimetableClient
+from uoft_quercus_mcp.timetable.conflicts import ResolvedSection, analyze_conflicts
+from uoft_quercus_mcp.timetable.course_codes import (
     expand_short_course_code,
     is_short_course_code,
     short_code_not_found_message,
 )
-from uoft_timetable_mcp.errors import (
+from uoft_quercus_mcp.timetable.errors import (
     CourseNotFoundError,
     TimetableError,
     TimetableUpstreamError,
     TimetableValidationError,
-    to_mcp_error,
 )
-from uoft_timetable_mcp.models import (
+from uoft_quercus_mcp.timetable.models import (
     CheckConflictsInput,
     CheckConflictsResult,
     Course,
@@ -42,9 +48,8 @@ from uoft_timetable_mcp.models import (
     Section,
     SectionSelection,
     UnresolvedSelection,
-    model_to_public_dict,
 )
-from uoft_timetable_mcp.normalize import (
+from uoft_quercus_mcp.timetable.normalize import (
     classify_search_query,
     normalize_course,
     normalize_reference_data,
@@ -52,16 +57,16 @@ from uoft_timetable_mcp.normalize import (
     session_matches,
     utc_now,
 )
-from uoft_timetable_mcp.settings import Settings
+from uoft_quercus_mcp.timetable.settings import Settings
 
 _CHECK_CONFLICTS_DESCRIPTION = (
-    "Deterministically check whether selected course sections overlap in time. "
-    "Resolves section meeting times from current timetable data — do not rely on "
-    "your own time arithmetic. Before telling a student that a proposed schedule "
-    "is verified, call this tool with every selected section. Only claim the "
-    "schedule is verified when `has_conflicts` is false, `transition_violations` "
-    "is empty, and `is_complete` is true. If `is_complete` is false, say the "
-    "schedule could not be fully verified. Prefer full parent course codes when "
+    "Deterministically check whether selected course sections overlap in time "
+    "using Timetable Builder (TTB) meeting times — do not rely on your own time "
+    "arithmetic. Before telling a student that a proposed schedule is verified, "
+    "call this tool with every selected section. Only claim the schedule is "
+    "verified when `has_conflicts` is false, `transition_violations` is empty, "
+    "and `is_complete` is true. If `is_complete` is false, say the schedule "
+    "could not be fully verified. Prefer full parent course codes when "
     "selecting sections (e.g. CSCA08H3, not CSCA08). "
     "Unofficial Timetable Builder data; values may change and this project is "
     "not affiliated with the University of Toronto."
@@ -72,9 +77,9 @@ _COURSE_CODE_GUIDANCE = (
     "Students often omit the campus suffix (CSCA08 vs CSCA08H3). Commonly, the "
     "final H/Y is course weight and the final digit is campus — usually 1 St. "
     "George, 3 UTSC, 5 UTM (so H1/Y1, H3/Y3, H5/Y5). Choose the matching "
-    "division from get_reference_data (SCAR for UTSC, ERIN for UTM, ARTSC for "
-    "Arts & Science St. George, etc.). If a short code fails, retry with the "
-    "full code and correct division rather than guessing randomly."
+    "division from ttb_get_reference_data (SCAR for UTSC, ERIN for UTM, ARTSC "
+    "for Arts & Science St. George, etc.). If a short code fails, retry with "
+    "the full code and correct division rather than guessing randomly."
 )
 
 logger = logging.getLogger(__name__)
@@ -151,7 +156,12 @@ class RuntimeState:
     settings: Settings
     clock: Clock
     reference_cache: ReferenceDataCache
+    quercus_settings: QuercusSettings
+    quercus_auth: AuthProvider
+    quercus_client: QuercusClient
+    quercus_course_cache: CourseListCache
     owns_client: bool = True
+    owns_quercus_client: bool = True
 
 
 _state: RuntimeState | None = None
@@ -163,6 +173,11 @@ def configure_runtime(
     settings: Settings | None = None,
     clock: Clock | None = None,
     owns_client: bool | None = None,
+    quercus_client: QuercusClient | None = None,
+    quercus_settings: QuercusSettings | None = None,
+    quercus_auth: AuthProvider | None = None,
+    owns_quercus_client: bool | None = None,
+    quercus_course_cache: CourseListCache | None = None,
 ) -> RuntimeState:
     """Configure process-wide runtime dependencies (tests may call this)."""
     global _state
@@ -174,12 +189,38 @@ def configure_runtime(
         ttl_seconds=resolved_settings.reference_cache_ttl_seconds,
         clock=resolved_clock,
     )
+    resolved_quercus_settings = quercus_settings or QuercusSettings.from_env()
+    resolved_quercus_auth: AuthProvider = quercus_auth or PersonalTokenAuth.from_env(
+        resolved_quercus_settings
+    )
+    if quercus_client is not None:
+        resolved_quercus_client = quercus_client
+        resolved_owns_quercus = (
+            owns_quercus_client if owns_quercus_client is not None else False
+        )
+    else:
+        resolved_quercus_client = QuercusClient(
+            resolved_quercus_settings,
+            auth=resolved_quercus_auth,
+        )
+        resolved_owns_quercus = (
+            owns_quercus_client if owns_quercus_client is not None else True
+        )
+    resolved_course_cache = quercus_course_cache or CourseListCache(
+        ttl_seconds=resolved_quercus_settings.course_cache_ttl_seconds,
+        clock=resolved_clock,
+    )
     _state = RuntimeState(
         client=resolved_client,
         settings=resolved_settings,
         clock=resolved_clock,
         reference_cache=cache,
         owns_client=resolved_owns,
+        quercus_settings=resolved_quercus_settings,
+        quercus_auth=resolved_quercus_auth,
+        quercus_client=resolved_quercus_client,
+        quercus_course_cache=resolved_course_cache,
+        owns_quercus_client=resolved_owns_quercus,
     )
     return _state
 
@@ -196,7 +237,7 @@ def get_state() -> RuntimeState:
     return _state
 
 
-def raise_tool_error(exc: TimetableError) -> NoReturn:
+def raise_tool_error(exc: DomainError) -> NoReturn:
     """Raise a FastMCP ToolError carrying the stable MCP error payload."""
     raise ToolError(json.dumps(to_mcp_error(exc))) from exc
 
@@ -213,19 +254,26 @@ async def _lifespan(_server: FastMCP) -> AsyncIterator[dict[str, Any]]:
         if created_here and _state is not None:
             if _state.owns_client:
                 await _state.client.aclose()
+            if _state.owns_quercus_client:
+                await _state.quercus_client.aclose()
             _state = None
 
 
 mcp = FastMCP(
-    name="uoft-timetable-mcp",
+    name="uoft-quercus-mcp",
     version=__version__,
     instructions=(
-        "Unofficial University of Toronto Timetable Builder data tools. "
-        "Discover sessions and filters, search courses, fetch section details, "
-        "and deterministically check schedule conflicts. "
+        "Unofficial University of Toronto Quercus (Canvas) MCP tools for students. "
+        "With QUERCUS_ACCESS_TOKEN, list courses, todo/upcoming, assignments, "
+        "announcements, modules, course files, and file text/download "
+        "(e.g. past quiz PDFs via quercus_get_file mode=text). "
+        "Also includes public Timetable Builder (TTB) helpers via the ttb_* "
+        "tools: ttb_get_reference_data, ttb_search_courses, "
+        "ttb_get_course_details, ttb_check_conflicts. "
         f"{_COURSE_CODE_GUIDANCE} "
-        "Data may change; this project is not affiliated with the University "
-        "of Toronto."
+        "TTB tools do not require a Quercus token. Quercus and Timetable "
+        "Builder are separate unofficial data sources. This project is not "
+        "affiliated with the University of Toronto."
     ),
     lifespan=_lifespan,
     mask_error_details=True,
@@ -234,13 +282,13 @@ mcp = FastMCP(
 
 @mcp.tool(
     description=(
-        "Return currently valid Timetable Builder sessions, divisions, campuses, "
-        "delivery modes, and course levels. Call this before searching if you do "
-        "not already know valid filter values. Sessions are not hard-coded and "
-        f"change over time. {_DATA_DISCLAIMER}"
+        "Return currently valid Timetable Builder (TTB) sessions, divisions, "
+        "campuses, delivery modes, and course levels. Call this before searching "
+        "if you do not already know valid filter values. Sessions are not "
+        f"hard-coded and change over time. {_DATA_DISCLAIMER}"
     )
 )
-async def get_reference_data() -> dict[str, Any]:
+async def ttb_get_reference_data() -> dict[str, Any]:
     state = get_state()
 
     async def _fetch() -> ReferenceData:
@@ -256,18 +304,18 @@ async def get_reference_data() -> dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "Search courses by code or title with required session and division "
-        "filters. Returns concise summaries and pagination metadata; use "
-        "get_course_details for full section/meeting data. "
-        "Requires at least one session and one division from get_reference_data. "
-        "page is one-based; page_size must be between 1 and 50. "
-        f"{_COURSE_CODE_GUIDANCE} "
+        "Search Timetable Builder (TTB) courses by code or title with required "
+        "session and division filters. Returns concise summaries and pagination "
+        "metadata; use ttb_get_course_details for full section/meeting data. "
+        "Requires at least one session and one division from "
+        "ttb_get_reference_data. page is one-based; page_size must be between 1 "
+        f"and 50. {_COURSE_CODE_GUIDANCE} "
         "Short code-like queries are expanded using the selected division "
         "(never sent as a title search). Empty courses means no match — try the "
         f"full code and correct division. {_DATA_DISCLAIMER}"
     )
 )
-async def search_courses(
+async def ttb_search_courses(
     sessions: list[str],
     divisions: list[str],
     query: str = "",
@@ -362,15 +410,15 @@ async def search_courses(
 
 @mcp.tool(
     description=(
-        "Fetch normalized course and section details for a course code in a "
-        "required session. Optionally filter by section_code term half "
-        "(F, S, or Y) — not a LEC/TUT component name. Returns all matching "
-        "upstream records for that course/session. Raises course_not_found "
-        f"when nothing matches. {_COURSE_CODE_GUIDANCE} "
+        "Fetch normalized course and section details from Timetable Builder "
+        "(TTB) for a course code in a required session. Optionally filter by "
+        "section_code term half (F, S, or Y) — not a LEC/TUT component name. "
+        "Returns all matching upstream records for that course/session. Raises "
+        f"course_not_found when nothing matches. {_COURSE_CODE_GUIDANCE} "
         f"{_DATA_DISCLAIMER}"
     )
 )
-async def get_course_details(
+async def ttb_get_course_details(
     course_code: str,
     session: str,
     section_code: str | None = None,
@@ -502,7 +550,7 @@ async def _lookup_course_details(
 
 
 @mcp.tool(description=_CHECK_CONFLICTS_DESCRIPTION)
-async def check_conflicts(
+async def ttb_check_conflicts(
     session: str,
     selections: list[SectionSelection],
     minimum_transition_minutes: int = 0,
@@ -650,3 +698,6 @@ def _find_section_matches(courses: list[Course], section_name: str) -> list[Sect
             if section.name.upper() == wanted:
                 matches.append(section)
     return matches
+
+
+register_quercus_tools(mcp)

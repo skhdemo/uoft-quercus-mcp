@@ -1,0 +1,20 @@
+[
+  {
+    "id": 801,
+    "display_name": "quiz2.pdf",
+    "filename": "quiz2.pdf",
+    "content-type": "application/pdf",
+    "size": 1234,
+    "folder_id": 10,
+    "url": "https://q.utoronto.ca/files/801/download?download_frd=1"
+  },
+  {
+    "id": 802,
+    "display_name": "notes.txt",
+    "filename": "notes.txt",
+    "content-type": "text/plain",
+    "size": 40,
+    "folder_id": 10,
+    "url": "https://q.utoronto.ca/files/802/download?download_frd=1"
+  }
+]

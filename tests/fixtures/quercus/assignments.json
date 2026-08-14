@@ -1,0 +1,21 @@
+[
+  {
+    "id": 501,
+    "name": "Quiz 2 PDF review",
+    "due_at": "2026-03-01T23:59:00Z",
+    "points_possible": 10,
+    "html_url": "https://q.utoronto.ca/courses/1001/assignments/501",
+    "course_id": 1001,
+    "submission_types": ["online_upload"],
+    "published": true
+  },
+  {
+    "id": 502,
+    "name": "Problem Set 3",
+    "due_at": "2026-03-10T23:59:00Z",
+    "points_possible": 20,
+    "html_url": "https://q.utoronto.ca/courses/1001/assignments/502",
+    "course_id": 1001,
+    "published": true
+  }
+]

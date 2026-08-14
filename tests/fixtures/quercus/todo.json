@@ -1,0 +1,15 @@
+[
+  {
+    "type": "submitting",
+    "assignment": {
+      "id": 501,
+      "name": "Quiz 2 PDF review",
+      "due_at": "2026-03-01T23:59:00Z",
+      "html_url": "https://q.utoronto.ca/courses/1001/assignments/501",
+      "course_id": 1001
+    },
+    "context_type": "Course",
+    "course_id": 1001,
+    "html_url": "https://q.utoronto.ca/courses/1001/assignments/501"
+  }
+]

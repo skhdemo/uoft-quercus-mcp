@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from uoft_timetable_mcp.models import (
+from uoft_quercus_mcp.timetable.models import (
     ConflictRecord,
     Meeting,
     Section,
     TransitionViolation,
     UncheckedMeeting,
 )
-from uoft_timetable_mcp.normalize import format_hhmm, meeting_is_conflict_checkable
+from uoft_quercus_mcp.timetable.normalize import (
+    format_hhmm,
+    meeting_is_conflict_checkable,
+)
 
 _DAY_SORT_ORDER = {
     "Monday": 1,

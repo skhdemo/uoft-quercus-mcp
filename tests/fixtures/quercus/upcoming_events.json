@@ -1,0 +1,11 @@
+[
+  {
+    "id": 9001,
+    "title": "MATA22 Midterm",
+    "type": "event",
+    "start_at": "2026-02-20T15:00:00Z",
+    "end_at": "2026-02-20T17:00:00Z",
+    "html_url": "https://q.utoronto.ca/calendar?event_id=9001",
+    "context_code": "course_1001"
+  }
+]

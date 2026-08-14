@@ -1,21 +1,26 @@
-"""Domain exceptions and MCP-safe error mapping."""
+"""Timetable domain exceptions."""
 
 from __future__ import annotations
 
-from typing import Any
+from uoft_quercus_mcp.common.errors import DomainError, to_mcp_error
+
+__all__ = [
+    "CourseNotFoundError",
+    "TimetableError",
+    "TimetableNetworkError",
+    "TimetableRateLimitError",
+    "TimetableTimeoutError",
+    "TimetableUpstreamError",
+    "TimetableValidationError",
+    "to_mcp_error",
+]
 
 
-class TimetableError(Exception):
-    """Base error for timetable MCP domain failures."""
+class TimetableError(DomainError):
+    """Base error for timetable domain failures."""
 
     code: str = "upstream_error"
     retryable: bool = False
-
-    def __init__(self, message: str, *, retryable: bool | None = None) -> None:
-        super().__init__(message)
-        self.message = message
-        if retryable is not None:
-            self.retryable = retryable
 
 
 class TimetableNetworkError(TimetableError):
@@ -46,14 +51,3 @@ class TimetableValidationError(TimetableError):
 class CourseNotFoundError(TimetableError):
     code = "course_not_found"
     retryable = False
-
-
-def to_mcp_error(exc: TimetableError) -> dict[str, Any]:
-    """Map a domain exception to the stable MCP error payload shape."""
-    return {
-        "error": {
-            "code": exc.code,
-            "message": exc.message,
-            "retryable": bool(exc.retryable),
-        }
-    }

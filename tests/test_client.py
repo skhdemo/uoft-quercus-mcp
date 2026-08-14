@@ -12,13 +12,13 @@ import httpx
 import pytest
 import respx
 
-from uoft_timetable_mcp.client import TimetableClient
-from uoft_timetable_mcp.errors import (
+from uoft_quercus_mcp.timetable.client import TimetableClient
+from uoft_quercus_mcp.timetable.errors import (
     TimetableRateLimitError,
     TimetableTimeoutError,
     TimetableUpstreamError,
 )
-from uoft_timetable_mcp.settings import Settings
+from uoft_quercus_mcp.timetable.settings import Settings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = "https://api.easi.utoronto.ca/ttb"
@@ -63,7 +63,7 @@ def _assert_common_headers(request: httpx.Request) -> None:
     assert request.headers["Accept"] == "application/json"
     assert request.headers["Origin"] == "https://ttb.utoronto.ca"
     assert request.headers["Referer"] == "https://ttb.utoronto.ca/"
-    assert request.headers["User-Agent"] == "uoft-timetable-mcp/0.1.0"
+    assert request.headers["User-Agent"] == "uoft-quercus-mcp/0.1.0"
     assert "Sec-CH-UA" not in request.headers
 
 

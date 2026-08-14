@@ -19,7 +19,7 @@ async def test_stdio_lists_tools() -> None:
     """Packaging and entry point work: initialize, list tools, exit cleanly."""
     transport = StdioTransport(
         command=sys.executable,
-        args=["-m", "uoft_timetable_mcp"],
+        args=["-m", "uoft_quercus_mcp"],
         cwd=str(_PROJECT_ROOT),
         env={
             "VIRTUAL_ENV": str(_PROJECT_ROOT / ".venv"),
@@ -39,8 +39,16 @@ async def test_stdio_lists_tools() -> None:
 
     assert isinstance(tool_names, list)
     assert sorted(tool_names) == [
-        "check_conflicts",
-        "get_course_details",
-        "get_reference_data",
-        "search_courses",
+        "quercus_get_file",
+        "quercus_list_announcements",
+        "quercus_list_assignments",
+        "quercus_list_courses",
+        "quercus_list_files",
+        "quercus_list_modules",
+        "quercus_list_todo",
+        "quercus_whoami",
+        "ttb_check_conflicts",
+        "ttb_get_course_details",
+        "ttb_get_reference_data",
+        "ttb_search_courses",
     ]

@@ -1,35 +1,50 @@
-# uoft-timetable-mcp
+# uoft-quercus-mcp
 
-Unofficial MCP server that gives an LLM current University of Toronto course and timetable data from the public Timetable Builder API.
-
-The server is a **data and validation layer**. The LLM proposes schedules and explains trade-offs. Exact time overlap detection is handled by the deterministic `check_conflicts` tool so the model does not need to do time arithmetic itself.
+Unofficial MCP server for University of Toronto students: **Quercus (Canvas)** tools via a personal access token, plus public **Timetable Builder** helpers for schedule search and conflict checks.
 
 ## Disclaimer
 
 This project is **not affiliated with, endorsed by, or supported by the University of Toronto**.
 
-It uses the public Timetable Builder HTTP API with browser-like `Origin` / `Referer` headers. That is a common pattern for unofficial integrations, but it is **not an officially supported API**. U of T may change, rate-limit, or block access at any time. Use at your own risk and respect upstream terms of use.
+- Quercus tools use the Canvas API with a **personal access token you create**. That is not an official Quercus product.
+- Timetable tools use the public Timetable Builder HTTP API (separate from Quercus). U of T may change, rate-limit, or block access at any time.
+
+Use at your own risk and respect upstream terms of use.
 
 ## What it does
 
+**Quercus (requires `QUERCUS_ACCESS_TOKEN`):**
+
+- Verify your Quercus identity
+- List enrolled courses
+- Todo items and upcoming events
+- Assignments and announcements (announcements use term start, else last 365 days, through today)
+- Modules and course files
+- Download files and extract text from PDF/DOCX/plain text (no OCR)
+
+**Timetable Builder (no Quercus token):**
+
 - Discover current sessions, divisions, campuses, delivery modes, and course levels
-- Search courses by code or title with pagination
-- Fetch normalized section, meeting, instructor, and enrolment details
+- Search courses by code or title
+- Fetch section, meeting, instructor, and enrolment details
 - Deterministically check selected sections for time overlaps and transition gaps
 
 ## What it does not do
 
-- ACORN / Quercus login or any U of T authentication
+- UTORid / password login, cookie scraping, or session hijacking
+- Hosted OAuth / multi-user Quercus product (personal token only for now)
 - Course enrolment or waitlist changes
 - Degree / prerequisite / eligibility decisions
 - Exam schedules
 - Saved timetables, accounts, or persistence
+- OCR for scanned PDFs/images
 - Automatic schedule generation inside the server
-- HTML scraping when the API is unavailable
 
 ## Privacy
 
-No U of T credentials, cookies, or student account data are required or collected. The server only calls the public Timetable Builder API with the filters you (or the LLM) supply.
+- Quercus: put your personal access token only in the MCP server `env` (for example Cursor `mcp.json`). The token is never logged or returned in tool output. Do not commit or share it.
+- Downloads stay on your machine under `QUERCUS_DOWNLOAD_DIR`.
+- Timetable tools call the public Timetable Builder API only — no U of T credentials required.
 
 ## Prerequisites
 
@@ -39,18 +54,33 @@ No U of T credentials, cookies, or student account data are required or collecte
 ## Installation
 
 ```bash
-git clone <repo-url> uoft-timetable-mcp
-cd uoft-timetable-mcp
+git clone git@github.com:skhdemo/uoft-quercus-mcp.git
+cd uoft-quercus-mcp
 uv sync
 ```
+
+If your local folder is still named `uoft-timetable-mcp`, that is fine until you rename it; clone/docs examples use the new name.
+
+## Create a Quercus personal access token
+
+1. Sign in to [Quercus](https://q.utoronto.ca).
+2. Open **Account → Settings → New Access Token** (wording may vary by campus/theme).
+3. Copy the token once when it is shown.
+4. Put it only in MCP `env` as `QUERCUS_ACCESS_TOKEN` — never in chat, commits, or screenshots.
+
+Background on Canvas tokens: [How do I manage API access tokens?](https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-as-an-account-admin/ta-p/615312) (campus Quercus help may differ slightly).
+
+Without a token, Timetable tools still work; Quercus tools return `quercus_auth_missing`.
 
 ## Run over stdio
 
 ```bash
-uv run uoft-timetable-mcp
+uv run uoft-quercus-mcp
 # or
-uv run python -m uoft_timetable_mcp
+uv run python -m uoft_quercus_mcp
 ```
+
+A deprecated console-script alias `uoft-timetable-mcp` still points at the same entry point for old Cursor configs. Prefer `uoft-quercus-mcp`.
 
 ## Cursor MCP configuration
 
@@ -59,131 +89,88 @@ Add something like this to your Cursor MCP settings (adjust the absolute path):
 ```json
 {
   "mcpServers": {
-    "uoft-timetable": {
+    "uoft-quercus": {
       "command": "uv",
       "args": [
         "--directory",
-        "/absolute/path/to/uoft-timetable-mcp",
+        "/absolute/path/to/uoft-quercus-mcp",
         "run",
-        "uoft-timetable-mcp"
-      ]
+        "uoft-quercus-mcp"
+      ],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
     }
   }
 }
 ```
 
-After restarting MCP, Cursor should discover exactly these four tools:
+After restarting MCP, Cursor should discover Quercus tools (token required) and Timetable Builder (TTB) tools:
 
-1. `get_reference_data`
-2. `search_courses`
-3. `get_course_details`
-4. `check_conflicts`
+- Quercus: `quercus_whoami`, `quercus_list_courses`, `quercus_list_todo`, `quercus_list_assignments`, `quercus_list_announcements`, `quercus_list_modules`, `quercus_list_files`, `quercus_get_file`
+- Timetable Builder (TTB): `ttb_get_reference_data`, `ttb_search_courses`, `ttb_get_course_details`, `ttb_check_conflicts`
+
+## Quick start prompts
+
+- “What’s due on Quercus?”
+- “List modules for MATA22 and open the past quiz PDF, then help with question 4.”
+- “Search Fall timetable for CSC108H1 and check conflicts for these lecture/tutorial sections.”
 
 ## Tools
 
-### `get_reference_data`
+### Quercus tools
 
-Return currently valid filter values. Sessions are **not hard-coded**.
+| Tool | Purpose |
+|------|---------|
+| `quercus_whoami` | Verify the token / identity |
+| `quercus_list_courses` | Canvas `id` + `course_code` + `name` |
+| `quercus_list_todo` | Todo items and upcoming events |
+| `quercus_list_assignments` | Course-scoped assignments (full list) |
+| `quercus_list_announcements` | Course-scoped; term start (else last 365 days) through today |
+| `quercus_list_modules` | Modules / materials map (`file_id` on File items) |
+| `quercus_list_files` | Course Files area |
+| `quercus_get_file` | `mode=metadata\|text\|download` (PDF/DOCX/text extraction; no OCR) |
 
-Input:
+Course-scoped tools accept a Canvas id, code fragment (`MATA22`), or name fragment. Prefer ids from `quercus_list_courses` when ambiguous.
 
-```json
-{}
-```
+Past quiz PDF flow: `quercus_list_modules` or `quercus_list_files` → `quercus_get_file` with `mode=text`.
 
-### `search_courses`
+### Timetable Builder (TTB) tools
 
-Search by course code or title. Requires at least one session and one division. Results are concise summaries with pagination (`page` is one-based; `page_size` max 50).
+| Tool | Purpose |
+|------|---------|
+| `ttb_get_reference_data` | Valid sessions, divisions, campuses, delivery modes, course levels (not hard-coded) |
+| `ttb_search_courses` | Search by code or title; requires session(s) + division(s); concise paginated summaries |
+| `ttb_get_course_details` | Full section/meeting details; optional `section_code` is term half (`F`/`S`/`Y`), not LEC/TUT |
+| `ttb_check_conflicts` | Deterministic overlap / transition checks on selected sections |
 
-Prefer **full** UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Students often omit the campus suffix (`CSCA08` vs `CSCA08H3`). Commonly, the final `H`/`Y` is course weight and the final digit is campus — usually `1` St. George, `3` UTSC, `5` UTM. Pick the matching division from `get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM). Short code-like queries are expanded using that division and are never treated as title searches.
+Prefer full UofT course codes when known (e.g. `CSC108H1`, `CSCA08H3`). Short codes are expanded using the selected division from `ttb_get_reference_data` (`ARTSC` / `APSC` St. George, `SCAR` UTSC, `ERIN` UTM).
 
-Example input:
+Before claiming a schedule is verified, call `ttb_check_conflicts` with every selected section and require `has_conflicts` false, empty `transition_violations`, and `is_complete` true.
 
-```json
-{
-  "query": "CSC108H1",
-  "sessions": ["20269"],
-  "divisions": ["ARTSC"],
-  "page": 1,
-  "page_size": 10
-}
-```
+## Data sources and freshness
 
-UTSC short-code example:
-
-```json
-{
-  "query": "CSCA08",
-  "sessions": ["20269"],
-  "divisions": ["SCAR"],
-  "page": 1,
-  "page_size": 10
-}
-```
-
-### `get_course_details`
-
-Fetch normalized course/section/meeting details for a course code in a required session. Optional `section_code` is the term half (`F`, `S`, `Y`), not a LEC/TUT name. Short codes without a campus suffix are expanded across common `H1`/`Y1`/`H3`/`Y3`/`H5`/`Y5` forms when needed.
-
-Example input:
-
-```json
-{
-  "course_code": "CSC148H1",
-  "session": "20269",
-  "section_code": null
-}
-```
-
-### `check_conflicts`
-
-Resolve selected section meeting times from current timetable data and report overlaps / transition gaps.
-
-**Verification rule for the LLM:** before telling a student a schedule is verified, call this tool with every selected section. Only claim verification when **all** of these are true:
-
-- `has_conflicts` is `false`
-- `transition_violations` is empty
-- `is_complete` is `true`
-
-If `is_complete` is `false`, say the schedule could not be fully verified.
-
-Example input:
-
-```json
-{
-  "session": "20269",
-  "selections": [
-    {
-      "course_code": "CSC108H1",
-      "section_names": ["LEC0201", "TUT0101"]
-    },
-    {
-      "course_code": "MAT137Y1",
-      "section_names": ["LEC0501", "TUT0401"]
-    }
-  ],
-  "minimum_transition_minutes": 0
-}
-```
-
-## Example prompts
-
-- “Find Fall 2026 Arts & Science sections of CSC108H1.”
-- “Show enrolment and meeting details for CSC148H1 in session 20269.”
-- “Check whether these selected lecture and tutorial sections overlap.”
-- “Create a schedule from these courses, avoid Fridays, and use the conflict tool to verify the final choice.”
-
-## Data source and freshness
-
-- Upstream API: `https://api.easi.utoronto.ca/ttb`
+- Quercus: `https://q.utoronto.ca` (Canvas API; needs personal access token)
+- Timetable Builder: `https://api.easi.utoronto.ca/ttb`
 - Reference data is cached in memory for 15 minutes (`TIMETABLE_REFERENCE_CACHE_TTL_SECONDS`)
-- Search / details / conflicts fetch current upstream data (conflicts always re-resolve selected sections)
-- Enrolment numbers and meeting rooms can change; treat responses as point-in-time
+- Search / details / conflicts fetch current upstream data
+- Enrolment numbers, rooms, and Quercus content can change; treat responses as point-in-time
 
-### Optional environment variables
+### Environment variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
+| `QUERCUS_ACCESS_TOKEN` | _(unset)_ | Quercus personal access token |
+| `QUERCUS_BASE_URL` | `https://q.utoronto.ca` | Quercus site root |
+| `QUERCUS_CONNECT_TIMEOUT_SECONDS` | `5` | Quercus connect timeout |
+| `QUERCUS_READ_TIMEOUT_SECONDS` | `20` | Quercus read timeout |
+| `QUERCUS_MAX_ATTEMPTS` | `3` | Quercus retry attempts |
+| `QUERCUS_MAX_PAGE_SIZE` | `100` | Canvas `per_page` cap |
+| `QUERCUS_MAX_CONCURRENCY` | `5` | Max concurrent module-item fetches |
+| `QUERCUS_DOWNLOAD_DIR` | `~/.cache/uoft-quercus-mcp/files` | Local download directory |
+| `QUERCUS_COURSE_CACHE_TTL_SECONDS` | `120` | Course-list resolver cache TTL |
+| `QUERCUS_MAX_DOWNLOAD_BYTES` | `26214400` | Max file download size (25 MiB) |
+| `QUERCUS_MAX_TEXT_CHARS` | `200000` | Max extracted text characters |
 | `TIMETABLE_BASE_URL` | `https://api.easi.utoronto.ca/ttb` | Upstream API root |
 | `TIMETABLE_CONNECT_TIMEOUT_SECONDS` | `5` | Connect timeout |
 | `TIMETABLE_READ_TIMEOUT_SECONDS` | `20` | Read timeout |
@@ -201,30 +188,36 @@ uv run pyright
 uv run pytest
 ```
 
-Optional live API smoke test (excluded by default):
+Optional live API smoke tests (excluded by default):
 
 ```bash
 uv run pytest -m live
+uv run pytest -m live_quercus
 ```
 
 ## Troubleshooting
 
+### Quercus auth missing / rejected
+
+- Confirm `QUERCUS_ACCESS_TOKEN` is set in the MCP server environment (Cursor `mcp.json` `env` does not apply to a plain shell `pytest`)
+- Regenerate the token in Quercus if it was revoked
+- Some Canvas features may return `quercus_forbidden` depending on course permissions
+
 ### Timeouts / upstream unavailable
 
 - Retry later; transient `429` / `5xx` / network timeouts are retried a few times
-- Check network access to `api.easi.utoronto.ca`
-- Increase `TIMETABLE_READ_TIMEOUT_SECONDS` if needed
+- Check network access to `q.utoronto.ca` and/or `api.easi.utoronto.ca`
+- Increase `QUERCUS_READ_TIMEOUT_SECONDS` or `TIMETABLE_READ_TIMEOUT_SECONDS` if needed
 
-### Upstream format changes
+### No timetable search results
 
-- Tool errors use stable codes such as `upstream_error` without stack traces
-- If normalization breaks after an API change, update fixtures under `tests/fixtures/` and adjust `normalize.py` deliberately
-
-### No search results
-
-- Confirm session and division values via `get_reference_data` (do not guess old term codes)
+- Confirm session and division values via `ttb_get_reference_data` (do not guess old term codes)
 - Try a broader title query, or a full course code like `CSC108H1`
 - Empty results (`courses: []`, `total: 0`) are valid — not an error
+
+### Local folder still named `uoft-timetable-mcp`
+
+The GitHub repo is `uoft-quercus-mcp`. Renaming your local checkout folder is optional; update Cursor `--directory` paths if you do.
 
 ## License
 

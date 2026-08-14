@@ -1,16 +1,19 @@
 [project]
-name = "uoft-timetable-mcp"
+name = "uoft-quercus-mcp"
 version = "0.1.0"
-description = "Unofficial University of Toronto Timetable Builder MCP server"
+description = "Unofficial University of Toronto Quercus (Canvas) MCP server, with Timetable Builder tools"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.4.5",
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
+    "pypdf>=5.0.0",
+    "python-docx>=1.1.0",
 ]
 
 [project.scripts]
-uoft-timetable-mcp = "uoft_timetable_mcp.__main__:main"
+uoft-quercus-mcp = "uoft_quercus_mcp.__main__:main"
+uoft-timetable-mcp = "uoft_quercus_mcp.__main__:main"  # deprecated alias
 
 [build-system]
 requires = ["uv_build>=0.11.8,<0.12.0"]
@@ -29,9 +32,10 @@ dev = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "-m 'not live'"
+addopts = "-m 'not live and not live_quercus'"
 markers = [
     "live: optional tests that call the live Timetable Builder API",
+    "live_quercus: optional tests that call live Quercus (needs QUERCUS_ACCESS_TOKEN)",
 ]
 
 [tool.ruff]
