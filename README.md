@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.skhdemo/uoft-quercus-mcp -->
+
 # uoft-quercus-mcp
 
 Unofficial MCP server for University of Toronto students: **Quercus (Canvas)** tools via a personal access token, plus public **Timetable Builder** helpers for schedule search and conflict checks.
@@ -49,17 +51,25 @@ Use at your own risk and respect upstream terms of use.
 ## Prerequisites
 
 - Python 3.11+
-- [`uv`](https://docs.astral.sh/uv/)
+- [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`
 
 ## Installation
 
+The published package on [PyPI](https://pypi.org/project/uoft-quercus-mcp/) is the recommended install. [`uvx`](https://docs.astral.sh/uv/guides/tools/) runs it without a local clone:
+
 ```bash
-git clone git@github.com:skhdemo/uoft-quercus-mcp.git
-cd uoft-quercus-mcp
-uv sync
+uvx uoft-quercus-mcp
 ```
 
-If your local folder is still named `uoft-timetable-mcp`, that is fine until you rename it; clone/docs examples use the new name.
+Or install it:
+
+```bash
+uv tool install uoft-quercus-mcp
+# or
+pip install uoft-quercus-mcp
+```
+
+For a local checkout, see [Development](#development).
 
 ## Create a Quercus personal access token
 
@@ -72,31 +82,16 @@ Background on Canvas tokens: [How do I manage API access tokens?](https://commun
 
 Without a token, Timetable tools still work; Quercus tools return `quercus_auth_missing`.
 
-## Run over stdio
-
-```bash
-uv run uoft-quercus-mcp
-# or
-uv run python -m uoft_quercus_mcp
-```
-
-A deprecated console-script alias `uoft-timetable-mcp` still points at the same entry point for old Cursor configs. Prefer `uoft-quercus-mcp`.
-
 ## Cursor MCP configuration
 
-Add something like this to your Cursor MCP settings (adjust the absolute path):
+Add this to your Cursor MCP settings:
 
 ```json
 {
   "mcpServers": {
     "uoft-quercus": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/absolute/path/to/uoft-quercus-mcp",
-        "run",
-        "uoft-quercus-mcp"
-      ],
+      "command": "uvx",
+      "args": ["uoft-quercus-mcp"],
       "env": {
         "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
       }
@@ -104,6 +99,8 @@ Add something like this to your Cursor MCP settings (adjust the absolute path):
   }
 }
 ```
+
+A deprecated console-script alias `uoft-timetable-mcp` still points at the same entry point for old configs. Prefer `uoft-quercus-mcp`.
 
 After restarting MCP, Cursor should discover Quercus tools (token required) and Timetable Builder (TTB) tools:
 
@@ -181,11 +178,50 @@ Before claiming a schedule is verified, call `ttb_check_conflicts` with every se
 ## Development
 
 ```bash
+git clone git@github.com:skhdemo/uoft-quercus-mcp.git
+cd uoft-quercus-mcp
 uv sync
+```
+
+If your local folder is still named `uoft-timetable-mcp`, that is fine until you rename it.
+
+Run the server from the checkout:
+
+```bash
+uv run uoft-quercus-mcp
+# or
+uv run python -m uoft_quercus_mcp
+```
+
+Local Cursor config (no PyPI install):
+
+```json
+{
+  "mcpServers": {
+    "uoft-quercus": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/uoft-quercus-mcp",
+        "run",
+        "uoft-quercus-mcp"
+      ],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
+    }
+  }
+}
+```
+
+Lint and test:
+
+```bash
 uv run ruff format .
 uv run ruff check .
 uv run pyright
 uv run pytest
+uv run pytest --cov
 ```
 
 Optional live API smoke tests (excluded by default):
@@ -217,7 +253,7 @@ uv run pytest -m live_quercus
 
 ### Local folder still named `uoft-timetable-mcp`
 
-The GitHub repo is `uoft-quercus-mcp`. Renaming your local checkout folder is optional; update Cursor `--directory` paths if you do.
+The GitHub repo is `uoft-quercus-mcp`. Renaming your local checkout folder is optional; if you use the local Cursor config, update the `--directory` path.
 
 ## License
 

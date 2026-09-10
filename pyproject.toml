@@ -2,7 +2,32 @@
 name = "uoft-quercus-mcp"
 version = "0.1.0"
 description = "Unofficial University of Toronto Quercus (Canvas) MCP server, with Timetable Builder tools"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Sepehr Khodadadi", email = "98116066+skhdemo@users.noreply.github.com" },
+]
 requires-python = ">=3.11"
+keywords = [
+    "mcp",
+    "quercus",
+    "canvas",
+    "university-of-toronto",
+    "uoft",
+    "timetable",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+]
 dependencies = [
     "fastmcp>=3.4.5",
     "httpx>=0.28.1",
@@ -10,6 +35,12 @@ dependencies = [
     "pypdf>=5.0.0",
     "python-docx>=1.1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/skhdemo/uoft-quercus-mcp"
+Repository = "https://github.com/skhdemo/uoft-quercus-mcp"
+Issues = "https://github.com/skhdemo/uoft-quercus-mcp/issues"
+Changelog = "https://github.com/skhdemo/uoft-quercus-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 uoft-quercus-mcp = "uoft_quercus_mcp.__main__:main"
@@ -24,6 +55,7 @@ dev = [
     "pyright>=1.1.411",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
     "respx>=0.23.1",
     "ruff>=0.16.0",
 ]
@@ -37,6 +69,15 @@ markers = [
     "live: optional tests that call the live Timetable Builder API",
     "live_quercus: optional tests that call live Quercus (needs QUERCUS_ACCESS_TOKEN)",
 ]
+
+[tool.coverage.run]
+source = ["uoft_quercus_mcp"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_empty = true
 
 [tool.ruff]
 target-version = "py311"
