@@ -221,6 +221,7 @@ uv run ruff format .
 uv run ruff check .
 uv run pyright
 uv run pytest
+uv run pytest --cov
 ```
 
 Optional live API smoke tests (excluded by default):
