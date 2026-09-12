@@ -174,7 +174,7 @@ Install Windows `uv` (see [Prerequisites](#prerequisites)). Use the `.exe` path 
 }
 ```
 
-Replace `YOUR_WINDOWS_USERNAME` (for example `skhde`). Fully quit Claude Desktop and reopen it. After it starts, the server may show under **Manage connectors**; that is not the same as adding a custom connector URL.
+Replace `YOUR_WINDOWS_USERNAME` with your Windows account folder name. Fully quit Claude Desktop and reopen it. After it starts, the server may show under **Manage connectors**; that is not the same as adding a custom connector URL.
 
 After restarting the client, you should see:
 
