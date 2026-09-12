@@ -44,14 +44,26 @@ Use at your own risk and respect upstream terms of use.
 
 ## Privacy
 
-- Quercus: put your personal access token only in the MCP server `env` (for example Cursor `mcp.json`). The token is never logged or returned in tool output. Do not commit or share it.
+- Quercus: put your personal access token only in the MCP server `env` (Cursor `mcp.json`, or Claude Desktop `claude_desktop_config.json`). The token is never logged or returned in tool output. Do not commit or share it.
 - Downloads stay on your machine under `QUERCUS_DOWNLOAD_DIR`.
 - Timetable tools call the public Timetable Builder API only — no U of T credentials required.
 
 ## Prerequisites
 
 - Python 3.11+
-- [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`
+- [`uv`](https://docs.astral.sh/uv/) on the **same OS as the MCP client** (recommended), or `pip`
+
+Install `uv` on each machine that will run the client:
+
+- **macOS / Linux** (including WSL): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Windows** (Command Prompt): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
+Then confirm `uvx` exists:
+
+- macOS / Linux: `uvx --version` or `"$HOME/.local/bin/uvx" --version`
+- Windows cmd: `"%USERPROFILE%\.local\bin\uvx.exe" --version`
+
+Claude Desktop on Windows does not see a WSL `uvx`. Install the Windows `uv` and use `uvx.exe` as below. Cursor running inside WSL should use the Linux `uvx`.
 
 ## Installation
 
@@ -82,9 +94,15 @@ Background on Canvas tokens: [How do I manage API access tokens?](https://commun
 
 Without a token, Timetable tools still work; Quercus tools return `quercus_auth_missing`.
 
-## Cursor MCP configuration
+## MCP client configuration
 
-Add this to your Cursor MCP settings:
+This is a **local stdio** server (`uvx uoft-quercus-mcp`). It is not a hosted URL, so do not add it under Claude **Connectors → Add custom connector**.
+
+Use your own Quercus token. A deprecated console-script alias `uoft-timetable-mcp` still works; prefer `uoft-quercus-mcp`.
+
+If the client cannot find `uvx` (`spawn uvx ENOENT` or `'uvx' is not recognized`), use the absolute path for your OS.
+
+### Cursor (macOS / Linux / WSL)
 
 ```json
 {
@@ -100,9 +118,65 @@ Add this to your Cursor MCP settings:
 }
 ```
 
-A deprecated console-script alias `uoft-timetable-mcp` still points at the same entry point for old configs. Prefer `uoft-quercus-mcp`.
+### Cursor (Windows)
 
-After restarting MCP, Cursor should discover Quercus tools (token required) and Timetable Builder (TTB) tools:
+If Cursor is the Windows app and `uvx` is not on `PATH`, use the Windows binary:
+
+```json
+{
+  "mcpServers": {
+    "uoft-quercus": {
+      "command": "C:\\Users\\YOUR_WINDOWS_USERNAME\\.local\\bin\\uvx.exe",
+      "args": ["uoft-quercus-mcp"],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop (macOS / Linux)
+
+Claude menu → **Settings → Developer → Edit Config** (`claude_desktop_config.json`). Keep any existing keys (for example `preferences`) and add `mcpServers`.
+
+```json
+{
+  "mcpServers": {
+    "uoft-quercus": {
+      "command": "uvx",
+      "args": ["uoft-quercus-mcp"],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
+    }
+  }
+}
+```
+
+If Claude still cannot find `uvx`, set `"command"` to `/Users/YOUR_USERNAME/.local/bin/uvx` (macOS) or `/home/YOUR_USERNAME/.local/bin/uvx` (Linux). Fully quit Claude Desktop and reopen it.
+
+### Claude Desktop (Windows)
+
+Install Windows `uv` (see [Prerequisites](#prerequisites)). Use the `.exe` path — a bare `"uvx"` usually fails because Claude’s `PATH` is short.
+
+```json
+{
+  "mcpServers": {
+    "uoft-quercus": {
+      "command": "C:\\Users\\YOUR_WINDOWS_USERNAME\\.local\\bin\\uvx.exe",
+      "args": ["uoft-quercus-mcp"],
+      "env": {
+        "QUERCUS_ACCESS_TOKEN": "your-quercus-personal-access-token"
+      }
+    }
+  }
+}
+```
+
+Replace `YOUR_WINDOWS_USERNAME` with your Windows account folder name. Fully quit Claude Desktop and reopen it. After it starts, the server may show under **Manage connectors**; that is not the same as adding a custom connector URL.
+
+After restarting the client, you should see:
 
 - Quercus: `quercus_whoami`, `quercus_list_courses`, `quercus_list_todo`, `quercus_list_assignments`, `quercus_list_announcements`, `quercus_list_modules`, `quercus_list_files`, `quercus_get_file`
 - Timetable Builder (TTB): `ttb_get_reference_data`, `ttb_search_courses`, `ttb_get_course_details`, `ttb_check_conflicts`
@@ -233,9 +307,15 @@ uv run pytest -m live_quercus
 
 ## Troubleshooting
 
+### `uvx` not found (`spawn uvx ENOENT`)
+
+- The MCP client is not using the same `uv` as your terminal (common with Claude Desktop on Windows)
+- Install `uv` for that OS and set `"command"` to the absolute `uvx` / `uvx.exe` path above
+- Windows Claude cannot use a WSL `uvx`; install Windows `uv` and point at `uvx.exe`
+
 ### Quercus auth missing / rejected
 
-- Confirm `QUERCUS_ACCESS_TOKEN` is set in the MCP server environment (Cursor `mcp.json` `env` does not apply to a plain shell `pytest`)
+- Confirm `QUERCUS_ACCESS_TOKEN` is set in the MCP server environment (client `env` does not apply to a plain shell `pytest`)
 - Regenerate the token in Quercus if it was revoked
 - Some Canvas features may return `quercus_forbidden` depending on course permissions
 
