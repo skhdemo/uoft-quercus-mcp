@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Document Cursor and Claude Desktop setup for Windows and macOS/Linux, including absolute `uvx` paths when the client cannot see `PATH`
+
 ## [0.1.0] - 2026-09-09
 
 First public release of the unofficial University of Toronto Quercus MCP server.
